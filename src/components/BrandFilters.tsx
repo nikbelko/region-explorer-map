@@ -1,21 +1,13 @@
-import { BRANDS, Brand } from "@/data/regions";
+import { BRANDS, Brand, BRAND_COLOR_MAP } from "@/data/regions";
 
 interface BrandFiltersProps {
   selectedBrands: Brand[];
   onToggleBrand: (brand: Brand) => void;
+  onSelectAll: () => void;
+  onDeselectAll: () => void;
 }
 
-const brandColors: Record<Brand, string> = {
-  "McDonald's": "hsl(45, 85%, 55%)",
-  "KFC": "hsl(0, 72%, 55%)",
-  "Burger King": "hsl(20, 80%, 55%)",
-  "Subway": "hsl(130, 50%, 50%)",
-  "Starbucks": "hsl(160, 55%, 50%)",
-  "Dominos": "hsl(210, 70%, 55%)",
-  "Pizza Hut": "hsl(340, 65%, 55%)",
-};
-
-const BrandFilters = ({ selectedBrands, onToggleBrand }: BrandFiltersProps) => {
+const BrandFilters = ({ selectedBrands, onToggleBrand, onSelectAll, onDeselectAll }: BrandFiltersProps) => {
   return (
     <div className="space-y-2">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
@@ -23,6 +15,7 @@ const BrandFilters = ({ selectedBrands, onToggleBrand }: BrandFiltersProps) => {
       </h3>
       {BRANDS.map((brand) => {
         const isSelected = selectedBrands.includes(brand);
+        const color = BRAND_COLOR_MAP[brand];
         return (
           <label
             key={brand}
@@ -31,8 +24,8 @@ const BrandFilters = ({ selectedBrands, onToggleBrand }: BrandFiltersProps) => {
             <div
               className="w-4 h-4 rounded border-2 flex items-center justify-center transition-all"
               style={{
-                borderColor: isSelected ? brandColors[brand] : "hsl(220, 16%, 30%)",
-                backgroundColor: isSelected ? brandColors[brand] : "transparent",
+                borderColor: isSelected ? color : "hsl(220, 16%, 30%)",
+                backgroundColor: isSelected ? color : "transparent",
               }}
             >
               {isSelected && (
@@ -41,12 +34,29 @@ const BrandFilters = ({ selectedBrands, onToggleBrand }: BrandFiltersProps) => {
                 </svg>
               )}
             </div>
-            <span className="text-sm text-secondary-foreground group-hover:text-foreground transition-colors">
+            <span
+              className="text-sm transition-colors"
+              style={{ color: isSelected ? color : "hsl(210, 20%, 70%)" }}
+            >
               {brand}
             </span>
           </label>
         );
       })}
+      <div className="flex gap-2 pt-2">
+        <button
+          onClick={onSelectAll}
+          className="flex-1 text-xs py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+        >
+          Выбрать все
+        </button>
+        <button
+          onClick={onDeselectAll}
+          className="flex-1 text-xs py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+        >
+          Сбросить все
+        </button>
+      </div>
     </div>
   );
 };
