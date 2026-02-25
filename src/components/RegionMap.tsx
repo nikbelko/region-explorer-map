@@ -1,16 +1,31 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
-import { regionsData, RegionFeature } from "@/data/regions";
 
 interface RegionMapProps {
   onRegionClick: (regionName: string) => void;
   selectedRegion: string | null;
 }
 
+const REGION_COLORS = [
+  "hsl(185, 72%, 48%)",
+  "hsl(340, 65%, 55%)",
+  "hsl(45, 85%, 55%)",
+  "hsl(130, 50%, 50%)",
+  "hsl(270, 55%, 55%)",
+  "hsl(20, 80%, 55%)",
+  "hsl(200, 70%, 55%)",
+  "hsl(160, 55%, 50%)",
+  "hsl(300, 50%, 55%)",
+  "hsl(60, 70%, 50%)",
+  "hsl(0, 72%, 55%)",
+  "hsl(210, 65%, 55%)",
+];
+
 const RegionMap = ({ onRegionClick, selectedRegion }: RegionMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const layersRef = useRef<L.GeoJSON | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
@@ -28,31 +43,50 @@ const RegionMap = ({ onRegionClick, selectedRegion }: RegionMapProps) => {
       maxZoom: 19,
     }).addTo(map);
 
-    const geoLayer = L.geoJSON(regionsData as any, {
-      style: (feature) => {
-        const f = feature as RegionFeature;
-        return {
-          color: "#fff",
-          weight: 2,
-          fillColor: f.properties.color,
-          fillOpacity: 0.55,
-        };
-      },
-      onEachFeature: (feature, layer) => {
-        const f = feature as RegionFeature;
-        layer.bindTooltip(f.properties.name, {
-          sticky: true,
-          className: "region-tooltip",
-        });
-        layer.on("click", () => {
-          console.log(f.properties.name);
-          onRegionClick(f.properties.name);
-        });
-      },
-    }).addTo(map);
-
     mapInstance.current = map;
-    layersRef.current = geoLayer;
+
+    // Fetch real GeoJSON
+    fetch("/data/uk-regions.geojson")
+      .then((res) => res.json())
+      .then((data) => {
+
+        let colorIndex = 0;
+        const geoLayer = L.geoJSON(data, {
+          style: (feature) => {
+            const color = REGION_COLORS[colorIndex % REGION_COLORS.length];
+            colorIndex++;
+            return {
+              color: "#fff",
+              weight: 2,
+              fillColor: color,
+              fillOpacity: 0.45,
+            };
+          },
+          onEachFeature: (feature, layer) => {
+            const props = feature?.properties || {};
+            const name = props.ITL125NM || `Region ${feature?.id || "unknown"}`;
+            
+            // Store color for later reference
+            (layer as any)._regionName = name;
+            
+            layer.bindTooltip(name, {
+              sticky: true,
+              className: "region-tooltip",
+            });
+            layer.on("click", () => {
+              console.log(name);
+              onRegionClick(name);
+            });
+          },
+        }).addTo(map);
+
+        layersRef.current = geoLayer;
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to load GeoJSON:", err);
+        setLoading(false);
+      });
 
     return () => {
       map.remove();
@@ -64,16 +98,27 @@ const RegionMap = ({ onRegionClick, selectedRegion }: RegionMapProps) => {
   useEffect(() => {
     if (!layersRef.current) return;
     layersRef.current.eachLayer((layer: any) => {
-      const feature = layer.feature as RegionFeature;
-      const isSelected = feature.properties.name === selectedRegion;
+      const isSelected = layer._regionName === selectedRegion;
       layer.setStyle({
-        fillOpacity: isSelected ? 0.6 : 0.35,
+        fillOpacity: isSelected ? 0.65 : 0.45,
         weight: isSelected ? 3 : 2,
       });
     });
   }, [selectedRegion]);
 
-  return <div ref={mapRef} className="w-full h-full" />;
+  return (
+    <div className="relative w-full h-full">
+      <div ref={mapRef} className="w-full h-full" />
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-[1000]">
+          <div className="flex items-center gap-3 text-primary">
+            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm font-medium">Загрузка регионов...</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default RegionMap;
