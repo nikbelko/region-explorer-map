@@ -16,7 +16,6 @@ const Index = () => {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
-      {/* Left Panel */}
       <aside className="w-[30%] min-w-[280px] border-r border-border bg-card flex flex-col">
         <header className="px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2 mb-1">
@@ -33,16 +32,18 @@ const Index = () => {
           <BrandFilters
             selectedBrands={selectedBrands}
             onToggleBrand={handleToggleBrand}
+            onSelectAll={() => setSelectedBrands([...BRANDS])}
+            onDeselectAll={() => setSelectedBrands([])}
           />
           <RegionInfoPanel selectedRegion={selectedRegion} />
         </div>
       </aside>
 
-      {/* Right Panel - Map */}
       <main className="flex-1 relative">
         <RegionMap
           onRegionClick={setSelectedRegion}
           selectedRegion={selectedRegion}
+          selectedBrands={selectedBrands}
         />
       </main>
     </div>

@@ -1,32 +1,29 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import L from "leaflet";
+import { Brand, BRAND_CONFIGS, BRAND_COLOR_MAP } from "@/data/regions";
 
 interface RegionMapProps {
   onRegionClick: (regionName: string) => void;
   selectedRegion: string | null;
+  selectedBrands: Brand[];
 }
 
 const REGION_COLORS = [
-  "hsl(185, 72%, 48%)",
-  "hsl(340, 65%, 55%)",
-  "hsl(45, 85%, 55%)",
-  "hsl(130, 50%, 50%)",
-  "hsl(270, 55%, 55%)",
-  "hsl(20, 80%, 55%)",
-  "hsl(200, 70%, 55%)",
-  "hsl(160, 55%, 50%)",
-  "hsl(300, 50%, 55%)",
-  "hsl(60, 70%, 50%)",
-  "hsl(0, 72%, 55%)",
-  "hsl(210, 65%, 55%)",
+  "hsl(185, 72%, 48%)", "hsl(340, 65%, 55%)", "hsl(45, 85%, 55%)",
+  "hsl(130, 50%, 50%)", "hsl(270, 55%, 55%)", "hsl(20, 80%, 55%)",
+  "hsl(200, 70%, 55%)", "hsl(160, 55%, 50%)", "hsl(300, 50%, 55%)",
+  "hsl(60, 70%, 50%)", "hsl(0, 72%, 55%)", "hsl(210, 65%, 55%)",
 ];
 
-const RegionMap = ({ onRegionClick, selectedRegion }: RegionMapProps) => {
+const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands }: RegionMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const layersRef = useRef<L.GeoJSON | null>(null);
+  const markerLayersRef = useRef<Record<string, L.LayerGroup>>({});
   const [loading, setLoading] = useState(true);
+  const [loadingBrands, setLoadingBrands] = useState(0);
 
+  // Load regions
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
 
@@ -45,75 +42,139 @@ const RegionMap = ({ onRegionClick, selectedRegion }: RegionMapProps) => {
 
     mapInstance.current = map;
 
-    // Fetch real GeoJSON
+    // Load regions
     fetch("/data/uk-regions.geojson")
       .then((res) => res.json())
       .then((data) => {
-
         let colorIndex = 0;
         const geoLayer = L.geoJSON(data, {
-          style: (feature) => {
+          style: () => {
             const color = REGION_COLORS[colorIndex % REGION_COLORS.length];
             colorIndex++;
-            return {
-              color: "#fff",
-              weight: 2,
-              fillColor: color,
-              fillOpacity: 0.45,
-            };
+            return { color: "#fff", weight: 2, fillColor: color, fillOpacity: 0.3 };
           },
           onEachFeature: (feature, layer) => {
             const props = feature?.properties || {};
             const name = props.ITL125NM || `Region ${feature?.id || "unknown"}`;
-            
-            // Store color for later reference
             (layer as any)._regionName = name;
-            
-            layer.bindTooltip(name, {
-              sticky: true,
-              className: "region-tooltip",
-            });
+            layer.bindTooltip(name, { sticky: true });
             layer.on("click", () => {
               console.log(name);
               onRegionClick(name);
             });
           },
         }).addTo(map);
-
         layersRef.current = geoLayer;
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Failed to load GeoJSON:", err);
+        console.error("Failed to load regions:", err);
         setLoading(false);
       });
+
+    // Load restaurant brands
+    let loaded = 0;
+    setLoadingBrands(BRAND_CONFIGS.length);
+    
+    BRAND_CONFIGS.forEach((brand) => {
+      const layerGroup = L.layerGroup().addTo(map);
+      markerLayersRef.current[brand.name] = layerGroup;
+
+      fetch(brand.file)
+        .then((res) => res.json())
+        .then((data) => {
+          const features = data.features || [];
+          features.forEach((f: any) => {
+            const coords = f.geometry?.coordinates;
+            if (!coords || coords.length < 2) return;
+            const [lng, lat] = coords;
+            if (typeof lat !== "number" || typeof lng !== "number") return;
+
+            const name = f.properties?.name || "Unknown";
+            const marker = L.circleMarker([lat, lng], {
+              radius: 4,
+              fillColor: brand.color,
+              color: brand.color,
+              weight: 1,
+              fillOpacity: 0.85,
+            });
+            marker.bindPopup(
+              `<div style="font-family:sans-serif;font-size:12px">` +
+              `<strong style="color:${brand.color}">${brand.name}</strong><br/>` +
+              `<span>${name}</span></div>`
+            );
+            layerGroup.addLayer(marker);
+          });
+          loaded++;
+          setLoadingBrands(BRAND_CONFIGS.length - loaded);
+        })
+        .catch((err) => {
+          console.error(`Failed to load ${brand.name}:`, err);
+          loaded++;
+          setLoadingBrands(BRAND_CONFIGS.length - loaded);
+        });
+    });
 
     return () => {
       map.remove();
       mapInstance.current = null;
+      markerLayersRef.current = {};
     };
   }, []);
 
-  // Update styles on selection change
+  // Update region styles on selection
   useEffect(() => {
     if (!layersRef.current) return;
     layersRef.current.eachLayer((layer: any) => {
       const isSelected = layer._regionName === selectedRegion;
       layer.setStyle({
-        fillOpacity: isSelected ? 0.65 : 0.45,
+        fillOpacity: isSelected ? 0.55 : 0.3,
         weight: isSelected ? 3 : 2,
       });
     });
   }, [selectedRegion]);
 
+  // Toggle brand marker visibility
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map) return;
+    
+    Object.entries(markerLayersRef.current).forEach(([brandName, layerGroup]) => {
+      const isVisible = selectedBrands.includes(brandName as Brand);
+      if (isVisible && !map.hasLayer(layerGroup)) {
+        map.addLayer(layerGroup);
+      } else if (!isVisible && map.hasLayer(layerGroup)) {
+        map.removeLayer(layerGroup);
+      }
+    });
+  }, [selectedBrands]);
+
+  const isLoading = loading || loadingBrands > 0;
+
   return (
     <div className="relative w-full h-full">
       <div ref={mapRef} className="w-full h-full" />
-      {loading && (
+
+      {/* Legend */}
+      <div className="absolute bottom-6 right-6 z-[1000] bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3">
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Легенда</h4>
+        <div className="space-y-1.5">
+          {BRAND_CONFIGS.map((b) => (
+            <div key={b.name} className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: b.color }} />
+              <span className="text-xs text-foreground/80">{b.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-[1000]">
           <div className="flex items-center gap-3 text-primary">
             <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm font-medium">Загрузка регионов...</span>
+            <span className="text-sm font-medium">
+              {loading ? "Загрузка регионов..." : `Загрузка брендов (${loadingBrands})...`}
+            </span>
           </div>
         </div>
       )}
