@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Search } from "lucide-react";
 import { BRANDS, Brand, BRAND_COLOR_MAP } from "@/data/regions";
 
 interface BrandFiltersProps {
@@ -8,12 +10,30 @@ interface BrandFiltersProps {
 }
 
 const BrandFilters = ({ selectedBrands, onToggleBrand, onSelectAll, onDeselectAll }: BrandFiltersProps) => {
+  const [search, setSearch] = useState("");
+
+  const filteredBrands = BRANDS.filter((brand) =>
+    brand.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="space-y-2">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
         Фильтры брендов
       </h3>
-      {BRANDS.map((brand) => {
+
+      <div className="relative mb-2">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="Поиск бренда..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-8 pr-3 py-1.5 text-sm rounded-md border border-border bg-secondary/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+
+      {filteredBrands.map((brand) => {
         const isSelected = selectedBrands.includes(brand);
         const color = BRAND_COLOR_MAP[brand];
         return (
@@ -43,6 +63,11 @@ const BrandFilters = ({ selectedBrands, onToggleBrand, onSelectAll, onDeselectAl
           </label>
         );
       })}
+
+      {filteredBrands.length === 0 && (
+        <p className="text-xs text-muted-foreground italic px-2 py-2">Ничего не найдено</p>
+      )}
+
       <div className="flex gap-2 pt-2">
         <button
           onClick={onSelectAll}

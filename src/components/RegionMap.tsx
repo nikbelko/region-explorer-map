@@ -152,6 +152,10 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
               weight: 1,
               fillOpacity: 0.85,
             });
+            marker.bindTooltip(
+              `<strong style="color:${brand.color}">${brand.name}</strong><br/>${name}`,
+              { direction: "top", offset: [0, -6], className: "brand-tooltip" }
+            );
             marker.bindPopup(
               `<div style="font-family:sans-serif;font-size:12px">` +
               `<strong style="color:${brand.color}">${brand.name}</strong><br/>` +
