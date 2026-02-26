@@ -226,16 +226,19 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
     <div className="relative w-full h-full">
       <div ref={mapRef} className="w-full h-full" />
 
-      {/* Legend */}
+      {/* Legend - only show active brands */}
       <div className="absolute bottom-6 right-6 z-[1000] bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3">
         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Легенда</h4>
         <div className="space-y-1.5">
-          {BRAND_CONFIGS.map((b) => (
+          {BRAND_CONFIGS.filter((b) => selectedBrands.includes(b.name)).map((b) => (
             <div key={b.name} className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: b.color }} />
               <span className="text-xs text-foreground/80">{b.name}</span>
             </div>
           ))}
+          {selectedBrands.length === 0 && (
+            <p className="text-[10px] text-muted-foreground italic">Нет активных брендов</p>
+          )}
         </div>
       </div>
 
