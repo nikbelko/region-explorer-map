@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import L from "leaflet";
-import { Brand, BRAND_CONFIGS, BRAND_COLOR_MAP } from "@/data/regions";
+import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
+import { point as turfPoint } from "@turf/helpers";
+import { Brand, BRAND_CONFIGS, BRAND_COLOR_MAP, RegionStats, BrandStat } from "@/data/regions";
 
 interface RegionMapProps {
   onRegionClick: (regionName: string) => void;
   selectedRegion: string | null;
   selectedBrands: Brand[];
+  onRegionStats: (stats: RegionStats | null) => void;
 }
 
 const REGION_COLORS = [
@@ -15,13 +18,63 @@ const REGION_COLORS = [
   "hsl(60, 70%, 50%)", "hsl(0, 72%, 55%)", "hsl(210, 65%, 55%)",
 ];
 
-const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands }: RegionMapProps) => {
+// Store loaded restaurant data globally within component
+interface RestaurantPoint {
+  brand: Brand;
+  lat: number;
+  lng: number;
+  name: string;
+}
+
+const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStats }: RegionMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const layersRef = useRef<L.GeoJSON | null>(null);
   const markerLayersRef = useRef<Record<string, L.LayerGroup>>({});
+  const restaurantsRef = useRef<RestaurantPoint[]>([]);
+  const regionsDataRef = useRef<any>(null);
   const [loading, setLoading] = useState(true);
   const [loadingBrands, setLoadingBrands] = useState(0);
+
+  const computeRegionStats = useCallback((regionName: string, brands: Brand[]) => {
+    const regionsData = regionsDataRef.current;
+    if (!regionsData) return null;
+
+    // Find the region feature
+    const regionFeature = regionsData.features?.find((f: any) => {
+      const props = f?.properties || {};
+      return (props.ITL125NM || `Region ${f?.id || "unknown"}`) === regionName;
+    });
+    if (!regionFeature) return null;
+
+    // Count restaurants inside this region, filtered by selected brands
+    const brandCounts: Record<string, number> = {};
+    let total = 0;
+
+    for (const r of restaurantsRef.current) {
+      if (!brands.includes(r.brand)) continue;
+      try {
+        const pt = turfPoint([r.lng, r.lat]);
+        if (booleanPointInPolygon(pt, regionFeature)) {
+          brandCounts[r.brand] = (brandCounts[r.brand] || 0) + 1;
+          total++;
+        }
+      } catch {
+        // skip invalid geometries
+      }
+    }
+
+    const brandStats: BrandStat[] = Object.entries(brandCounts)
+      .map(([brand, count]) => ({
+        brand: brand as Brand,
+        count,
+        percent: total > 0 ? Math.round((count / total) * 100) : 0,
+        color: BRAND_COLOR_MAP[brand as Brand] || "#888",
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    return { regionName, totalPoints: total, brands: brandStats };
+  }, []);
 
   // Load regions
   useEffect(() => {
@@ -42,10 +95,10 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands }: RegionMapP
 
     mapInstance.current = map;
 
-    // Load regions
     fetch("/data/uk-regions.geojson")
       .then((res) => res.json())
       .then((data) => {
+        regionsDataRef.current = data;
         let colorIndex = 0;
         const geoLayer = L.geoJSON(data, {
           style: () => {
@@ -59,7 +112,6 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands }: RegionMapP
             (layer as any)._regionName = name;
             layer.bindTooltip(name, { sticky: true });
             layer.on("click", () => {
-              console.log(name);
               onRegionClick(name);
             });
           },
@@ -75,7 +127,7 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands }: RegionMapP
     // Load restaurant brands
     let loaded = 0;
     setLoadingBrands(BRAND_CONFIGS.length);
-    
+
     BRAND_CONFIGS.forEach((brand) => {
       const layerGroup = L.layerGroup().addTo(map);
       markerLayersRef.current[brand.name] = layerGroup;
@@ -91,6 +143,8 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands }: RegionMapP
             if (typeof lat !== "number" || typeof lng !== "number") return;
 
             const name = f.properties?.name || "Unknown";
+            restaurantsRef.current.push({ brand: brand.name, lat, lng, name });
+
             const marker = L.circleMarker([lat, lng], {
               radius: 4,
               fillColor: brand.color,
@@ -119,26 +173,39 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands }: RegionMapP
       map.remove();
       mapInstance.current = null;
       markerLayersRef.current = {};
+      restaurantsRef.current = [];
     };
   }, []);
 
-  // Update region styles on selection
+  // Update region styles on selection + compute stats
   useEffect(() => {
     if (!layersRef.current) return;
     layersRef.current.eachLayer((layer: any) => {
       const isSelected = layer._regionName === selectedRegion;
       layer.setStyle({
         fillOpacity: isSelected ? 0.55 : 0.3,
-        weight: isSelected ? 3 : 2,
+        weight: isSelected ? 4 : 2,
+        color: isSelected ? "#ffffff" : "#fff",
+        dashArray: isSelected ? "" : "",
       });
+      if (isSelected) {
+        layer.bringToFront();
+      }
     });
-  }, [selectedRegion]);
+
+    if (selectedRegion) {
+      const stats = computeRegionStats(selectedRegion, selectedBrands);
+      onRegionStats(stats);
+    } else {
+      onRegionStats(null);
+    }
+  }, [selectedRegion, selectedBrands, computeRegionStats, onRegionStats]);
 
   // Toggle brand marker visibility
   useEffect(() => {
     const map = mapInstance.current;
     if (!map) return;
-    
+
     Object.entries(markerLayersRef.current).forEach(([brandName, layerGroup]) => {
       const isVisible = selectedBrands.includes(brandName as Brand);
       if (isVisible && !map.hasLayer(layerGroup)) {

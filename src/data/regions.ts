@@ -27,3 +27,16 @@ export const BRAND_CONFIGS: BrandConfig[] = [
 export const BRAND_COLOR_MAP: Record<Brand, string> = Object.fromEntries(
   BRAND_CONFIGS.map((b) => [b.name, b.color])
 ) as Record<Brand, string>;
+
+export interface BrandStat {
+  brand: Brand;
+  count: number;
+  percent: number;
+  color: string;
+}
+
+export interface RegionStats {
+  regionName: string;
+  totalPoints: number;
+  brands: BrandStat[];
+}

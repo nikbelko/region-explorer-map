@@ -1,18 +1,23 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import RegionMap from "@/components/RegionMap";
 import BrandFilters from "@/components/BrandFilters";
 import RegionInfoPanel from "@/components/RegionInfoPanel";
-import { Brand, BRANDS } from "@/data/regions";
+import { Brand, BRANDS, RegionStats } from "@/data/regions";
 
 const Index = () => {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedBrands, setSelectedBrands] = useState<Brand[]>([...BRANDS]);
+  const [regionStats, setRegionStats] = useState<RegionStats | null>(null);
 
   const handleToggleBrand = (brand: Brand) => {
     setSelectedBrands((prev) =>
       prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]
     );
   };
+
+  const handleRegionStats = useCallback((stats: RegionStats | null) => {
+    setRegionStats(stats);
+  }, []);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden">
@@ -35,7 +40,7 @@ const Index = () => {
             onSelectAll={() => setSelectedBrands([...BRANDS])}
             onDeselectAll={() => setSelectedBrands([])}
           />
-          <RegionInfoPanel selectedRegion={selectedRegion} />
+          <RegionInfoPanel selectedRegion={selectedRegion} regionStats={regionStats} />
         </div>
       </aside>
 
@@ -44,6 +49,7 @@ const Index = () => {
           onRegionClick={setSelectedRegion}
           selectedRegion={selectedRegion}
           selectedBrands={selectedBrands}
+          onRegionStats={handleRegionStats}
         />
       </main>
     </div>
