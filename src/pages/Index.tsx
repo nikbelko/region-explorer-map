@@ -40,7 +40,7 @@ const Index = () => {
             onSelectAll={() => setSelectedBrands([...BRANDS])}
             onDeselectAll={() => setSelectedBrands([])}
           />
-          <RegionInfoPanel selectedRegion={selectedRegion} regionStats={regionStats} />
+          <RegionInfoPanel selectedRegion={selectedRegion} regionStats={regionStats} onClearRegion={() => setSelectedRegion(null)} />
         </div>
       </aside>
 
