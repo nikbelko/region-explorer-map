@@ -1,17 +1,25 @@
 import { useState, useCallback } from "react";
 import RegionMap from "@/components/RegionMap";
 import BrandFilters from "@/components/BrandFilters";
+import CategoryFilters, { Category, CATEGORIES } from "@/components/CategoryFilters";
 import RegionInfoPanel from "@/components/RegionInfoPanel";
 import { Brand, BRANDS, RegionStats } from "@/data/regions";
 
 const Index = () => {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedBrands, setSelectedBrands] = useState<Brand[]>([...BRANDS]);
+  const [selectedCategories, setSelectedCategories] = useState<Category[]>([...CATEGORIES]);
   const [regionStats, setRegionStats] = useState<RegionStats | null>(null);
 
   const handleToggleBrand = (brand: Brand) => {
     setSelectedBrands((prev) =>
       prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]
+    );
+  };
+
+  const handleToggleCategory = (cat: Category) => {
+    setSelectedCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
     );
   };
 
@@ -39,6 +47,10 @@ const Index = () => {
             onToggleBrand={handleToggleBrand}
             onSelectAll={() => setSelectedBrands([...BRANDS])}
             onDeselectAll={() => setSelectedBrands([])}
+          />
+          <CategoryFilters
+            selectedCategories={selectedCategories}
+            onToggleCategory={handleToggleCategory}
           />
           <RegionInfoPanel selectedRegion={selectedRegion} regionStats={regionStats} onClearRegion={() => setSelectedRegion(null)} />
         </div>

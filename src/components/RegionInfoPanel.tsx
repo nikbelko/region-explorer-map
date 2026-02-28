@@ -75,8 +75,13 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-md bg-secondary p-2.5">
-              <p className="text-[10px] text-muted-foreground leading-tight">Точек на 100к жителей</p>
+            <div className="rounded-md bg-secondary p-2.5 group/density relative">
+              <p className="text-[10px] text-muted-foreground leading-tight cursor-help">
+                Плотность присутствия
+                <span className="absolute left-1/2 -translate-x-1/2 -top-8 bg-popover text-popover-foreground text-[10px] px-2 py-1 rounded border border-border whitespace-nowrap opacity-0 group-hover/density:opacity-100 transition-opacity pointer-events-none z-10">
+                  Плотность точек на 100k населения
+                </span>
+              </p>
               <p className="text-base font-bold text-foreground mt-0.5">
                 {concentrationIndex !== null ? concentrationIndex : "—"}
               </p>
