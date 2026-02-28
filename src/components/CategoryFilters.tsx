@@ -1,8 +1,17 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 
+import { Brand } from "@/data/regions";
+
 const CATEGORIES = ["Пицца", "Сендвичи", "Бургеры", "Гриль"] as const;
 export type Category = typeof CATEGORIES[number];
+
+export const CATEGORY_BRAND_MAP: Record<Category, Brand[]> = {
+  "Пицца": ["Domino's", "Papa John's"],
+  "Сендвичи": ["Subway"],
+  "Бургеры": ["McDonald's", "KFC"],
+  "Гриль": ["Nando's"],
+};
 
 interface CategoryFiltersProps {
   selectedCategories: Category[];
