@@ -1,6 +1,33 @@
+import { useState } from "react";
 import { X } from "lucide-react";
 import { RegionStats } from "@/data/regions";
 import { getRegionPopulation } from "@/data/regionPopulation";
+
+type Period = "month" | "quarter" | "year";
+const PERIOD_LABELS: Record<Period, string> = {
+  month: "месяц",
+  quarter: "квартал",
+  year: "год",
+};
+const PERIOD_MULTIPLIERS: Record<Period, number> = {
+  month: 1,
+  quarter: 3,
+  year: 12,
+};
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = s.charCodeAt(i) + ((h << 5) - h);
+  }
+  return h;
+}
+
+function getBrandDynamics(region: string, brand: string, period: Period): number {
+  const base = (Math.abs(hashStr(`${region}:${brand}`)) % 21) - 6;
+  const multiplier = PERIOD_MULTIPLIERS[period];
+  return Math.round(base * multiplier / 3);
+}
 
 interface RegionInfoPanelProps {
   selectedRegion: string | null;
@@ -9,6 +36,8 @@ interface RegionInfoPanelProps {
 }
 
 const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionInfoPanelProps) => {
+  const [period, setPeriod] = useState<Period>("quarter");
+
   if (!selectedRegion) {
     return (
       <div className="rounded-lg border border-border bg-card p-4">
@@ -25,7 +54,6 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   const population = getRegionPopulation(selectedRegion);
   const totalPoints = regionStats?.totalPoints ?? 0;
 
-  // Derived metrics
   const concentrationIndex = population && population > 0
     ? Math.round((totalPoints / (population * 1_000_000)) * 100_000 * 10) / 10
     : null;
@@ -35,12 +63,10 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
     ? Math.round(top3Brands.reduce((s, b) => s + b.count, 0) / totalPoints * 100)
     : 0;
 
-  // Pseudo-random quarterly change based on region name
-  let hash = 0;
-  for (let i = 0; i < selectedRegion.length; i++) {
-    hash = selectedRegion.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const quarterlyChange = (Math.abs(hash) % 31) - 8; // range roughly -8 to +22
+  // Total dynamics for the selected period
+  const totalDynamics = regionStats?.brands.reduce((sum, b) => {
+    return sum + getBrandDynamics(selectedRegion, b.brand, period);
+  }, 0) ?? 0;
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">
@@ -95,9 +121,20 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
           </div>
 
           <div className="rounded-md bg-secondary p-2.5">
-            <p className="text-[10px] text-muted-foreground">Динамика за квартал</p>
-            <p className={`text-base font-bold mt-0.5 ${quarterlyChange >= 0 ? "text-green-400" : "text-red-400"}`}>
-              {quarterlyChange >= 0 ? "+" : ""}{quarterlyChange} точек
+            <div className="flex items-center justify-between mb-0.5">
+              <p className="text-[10px] text-muted-foreground">Динамика за</p>
+              <select
+                value={period}
+                onChange={(e) => setPeriod(e.target.value as Period)}
+                className="text-[10px] bg-card border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+              >
+                {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
+                  <option key={p} value={p}>{PERIOD_LABELS[p]}</option>
+                ))}
+              </select>
+            </div>
+            <p className={`text-base font-bold mt-0.5 ${totalDynamics >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {totalDynamics >= 0 ? "+" : ""}{totalDynamics} точек
               <span className="ml-1 text-[10px] text-muted-foreground font-normal">(эксп.)</span>
             </p>
           </div>
@@ -109,26 +146,34 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               По брендам
             </p>
-            {regionStats.brands.map((b) => (
-              <div key={b.brand} className="space-y-1">
-                <div className="flex items-center justify-between py-1 border-b border-border/50 last:border-0">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: b.color }} />
-                    <span className="text-sm text-foreground">{b.brand}</span>
+            {regionStats.brands.map((b) => {
+              const dynamics = getBrandDynamics(selectedRegion, b.brand, period);
+              return (
+                <div key={b.brand} className="space-y-1">
+                  <div className="flex items-center justify-between py-1 border-b border-border/50 last:border-0">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: b.color }} />
+                      <span className="text-sm text-foreground">{b.brand}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">{b.count}</span>
+                      <span
+                        className={`text-[10px] font-medium ${dynamics >= 0 ? "text-green-400" : "text-red-400"}`}
+                      >
+                        {dynamics >= 0 ? "+" : ""}{dynamics}
+                      </span>
+                      <span className="text-xs text-muted-foreground w-10 text-right">{b.percent}%</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-foreground">{b.count}</span>
-                    <span className="text-xs text-muted-foreground w-10 text-right">{b.percent}%</span>
+                  <div className="h-1 rounded-full bg-secondary overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${b.percent}%`, backgroundColor: b.color }}
+                    />
                   </div>
                 </div>
-                <div className="h-1 rounded-full bg-secondary overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{ width: `${b.percent}%`, backgroundColor: b.color }}
-                  />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground italic">

@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Search, ChevronDown } from "lucide-react";
+import { Search, ChevronDown, CheckSquare, XSquare } from "lucide-react";
 import { BRANDS, Brand, BRAND_COLOR_MAP } from "@/data/regions";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface BrandFiltersProps {
   selectedBrands: Brand[];
@@ -19,17 +20,43 @@ const BrandFilters = ({ selectedBrands, onToggleBrand, onSelectAll, onDeselectAl
 
   return (
     <div className="space-y-2">
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center justify-between w-full group"
-      >
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Фильтры брендов
-        </h3>
-        <ChevronDown
-          className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`}
-        />
-      </button>
+      <div className="flex items-center justify-between w-full">
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex items-center gap-1 group"
+        >
+          <ChevronDown
+            className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`}
+          />
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Фильтры брендов
+          </h3>
+        </button>
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onSelectAll}
+                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top"><p className="text-xs">Выбрать все</p></TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onDeselectAll}
+                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+              >
+                <XSquare className="w-3.5 h-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top"><p className="text-xs">Сбросить все</p></TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
 
       {!collapsed && (
         <>
@@ -48,8 +75,9 @@ const BrandFilters = ({ selectedBrands, onToggleBrand, onSelectAll, onDeselectAl
             const isSelected = selectedBrands.includes(brand);
             const color = BRAND_COLOR_MAP[brand];
             return (
-              <label
+              <div
                 key={brand}
+                onClick={() => onToggleBrand(brand)}
                 className="flex items-center gap-3 cursor-pointer group px-2 py-1.5 rounded-md hover:bg-secondary/50 transition-colors"
               >
                 <div
@@ -71,28 +99,13 @@ const BrandFilters = ({ selectedBrands, onToggleBrand, onSelectAll, onDeselectAl
                 >
                   {brand}
                 </span>
-              </label>
+              </div>
             );
           })}
 
           {filteredBrands.length === 0 && (
             <p className="text-xs text-muted-foreground italic px-2 py-2">Ничего не найдено</p>
           )}
-
-          <div className="flex gap-2 pt-2">
-            <button
-              onClick={onSelectAll}
-              className="flex-1 text-xs py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
-            >
-              Выбрать все
-            </button>
-            <button
-              onClick={onDeselectAll}
-              className="flex-1 text-xs py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
-            >
-              Сбросить все
-            </button>
-          </div>
         </>
       )}
     </div>

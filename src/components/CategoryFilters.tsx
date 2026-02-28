@@ -32,14 +32,14 @@ const CategoryFilters = ({ selectedCategories, onToggleCategory }: CategoryFilte
     <div className="space-y-2">
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center justify-between w-full group"
+        className="flex items-center gap-1 w-full group"
       >
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Категория продукта
-        </h3>
         <ChevronDown
           className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`}
         />
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Категория продукта
+        </h3>
       </button>
 
       {!collapsed && (
@@ -48,8 +48,9 @@ const CategoryFilters = ({ selectedCategories, onToggleCategory }: CategoryFilte
             const isSelected = selectedCategories.includes(cat);
             const color = CATEGORY_COLORS[cat];
             return (
-              <label
+              <div
                 key={cat}
+                onClick={() => onToggleCategory(cat)}
                 className="flex items-center gap-3 cursor-pointer group px-2 py-1.5 rounded-md hover:bg-secondary/50 transition-colors"
               >
                 <div
@@ -71,7 +72,7 @@ const CategoryFilters = ({ selectedCategories, onToggleCategory }: CategoryFilte
                 >
                   {cat}
                 </span>
-              </label>
+              </div>
             );
           })}
         </>
