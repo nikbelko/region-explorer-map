@@ -1,8 +1,9 @@
 import { useState, useCallback } from "react";
 import RegionMap from "@/components/RegionMap";
 import BrandFilters from "@/components/BrandFilters";
-import CategoryFilters, { Category, CATEGORIES } from "@/components/CategoryFilters";
+import CategoryFilters, { Category, CATEGORIES, CATEGORY_BRAND_MAP } from "@/components/CategoryFilters";
 import RegionInfoPanel from "@/components/RegionInfoPanel";
+import InsightsPanel from "@/components/InsightsPanel";
 import { Brand, BRANDS, RegionStats } from "@/data/regions";
 
 const Index = () => {
@@ -18,9 +19,28 @@ const Index = () => {
   };
 
   const handleToggleCategory = (cat: Category) => {
-    setSelectedCategories((prev) =>
-      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
-    );
+    setSelectedCategories((prev) => {
+      const isRemoving = prev.includes(cat);
+      const newCategories = isRemoving ? prev.filter((c) => c !== cat) : [...prev, cat];
+
+      // Sync brands based on category
+      const brandsForCat = CATEGORY_BRAND_MAP[cat];
+      if (isRemoving) {
+        // Remove brands that belong ONLY to this category (not to other active categories)
+        const otherActiveCats = newCategories;
+        const brandsStillNeeded = new Set(
+          otherActiveCats.flatMap((c) => CATEGORY_BRAND_MAP[c])
+        );
+        setSelectedBrands((prev) =>
+          prev.filter((b) => !brandsForCat.includes(b) || brandsStillNeeded.has(b))
+        );
+      } else {
+        // Add brands for this category
+        setSelectedBrands((prev) => [...new Set([...prev, ...brandsForCat])]);
+      }
+
+      return newCategories;
+    });
   };
 
   const handleRegionStats = useCallback((stats: RegionStats | null) => {
@@ -62,6 +82,12 @@ const Index = () => {
           selectedRegion={selectedRegion}
           selectedBrands={selectedBrands}
           onRegionStats={handleRegionStats}
+        />
+        <InsightsPanel
+          selectedRegion={selectedRegion}
+          regionStats={regionStats}
+          selectedBrands={selectedBrands}
+          selectedCategories={selectedCategories}
         />
       </main>
     </div>
