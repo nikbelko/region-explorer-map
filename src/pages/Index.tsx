@@ -71,6 +71,16 @@ const Index = () => {
           <CategoryFilters
             selectedCategories={selectedCategories}
             onToggleCategory={handleToggleCategory}
+            onSelectAll={() => {
+              setSelectedCategories([...CATEGORIES]);
+              const allBrands = new Set(CATEGORIES.flatMap((c) => CATEGORY_BRAND_MAP[c]));
+              setSelectedBrands((prev) => [...new Set([...prev, ...allBrands])]);
+            }}
+            onDeselectAll={() => {
+              setSelectedCategories([]);
+              const allCatBrands = new Set(CATEGORIES.flatMap((c) => CATEGORY_BRAND_MAP[c]));
+              setSelectedBrands((prev) => prev.filter((b) => !allCatBrands.has(b)));
+            }}
           />
           <RegionInfoPanel selectedRegion={selectedRegion} regionStats={regionStats} onClearRegion={() => setSelectedRegion(null)} />
         </div>

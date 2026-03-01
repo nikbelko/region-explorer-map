@@ -123,15 +123,21 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
           <div className="rounded-md bg-secondary p-2.5">
             <div className="flex items-center justify-between mb-0.5">
               <p className="text-[10px] text-muted-foreground">Динамика за</p>
-              <select
-                value={period}
-                onChange={(e) => setPeriod(e.target.value as Period)}
-                className="text-[10px] bg-card border border-border rounded px-1.5 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
-              >
+              <div className="flex items-center gap-0.5">
                 {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
-                  <option key={p} value={p}>{PERIOD_LABELS[p]}</option>
+                  <button
+                    key={p}
+                    onClick={() => setPeriod(p)}
+                    className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                      period === p
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    {PERIOD_LABELS[p]}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
             <p className={`text-base font-bold mt-0.5 ${totalDynamics >= 0 ? "text-green-400" : "text-red-400"}`}>
               {totalDynamics >= 0 ? "+" : ""}{totalDynamics} точек

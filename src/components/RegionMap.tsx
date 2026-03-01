@@ -33,8 +33,14 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
   const markerLayersRef = useRef<Record<string, L.LayerGroup>>({});
   const restaurantsRef = useRef<RestaurantPoint[]>([]);
   const regionsDataRef = useRef<any>(null);
+  const selectedBrandsRef = useRef<Brand[]>(selectedBrands);
+  const selectedRegionRef = useRef<string | null>(selectedRegion);
   const [loading, setLoading] = useState(true);
   const [loadingBrands, setLoadingBrands] = useState(0);
+
+  // Keep refs in sync
+  selectedBrandsRef.current = selectedBrands;
+  selectedRegionRef.current = selectedRegion;
 
   const computeRegionStats = useCallback((regionName: string, brands: Brand[]) => {
     const regionsData = regionsDataRef.current;
@@ -99,6 +105,15 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
       .then((res) => res.json())
       .then((data) => {
         regionsDataRef.current = data;
+
+        // Create hover tooltip div
+        const tooltipDiv = document.createElement("div");
+        tooltipDiv.className = "region-hover-tooltip";
+        tooltipDiv.style.cssText =
+          "display:none;position:absolute;z-index:900;pointer-events:none;background:hsl(222,47%,11%,0.9);backdrop-filter:blur(8px);border:1px solid hsl(217,33%,17%);border-radius:8px;padding:6px 10px;font-size:11px;color:hsl(210,40%,98%);box-shadow:0 4px 12px rgba(0,0,0,0.4);max-width:200px;";
+        map.getContainer().appendChild(tooltipDiv);
+        (map as any)._regionTooltipDiv = tooltipDiv;
+
         let colorIndex = 0;
         const geoLayer = L.geoJSON(data, {
           style: () => {
@@ -110,9 +125,28 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
             const props = feature?.properties || {};
             const name = props.ITL125NM || `Region ${feature?.id || "unknown"}`;
             (layer as any)._regionName = name;
-            layer.bindTooltip(name, { sticky: true });
             layer.on("click", () => {
               onRegionClick(name);
+            });
+            layer.on("mouseover", () => {
+              if (selectedRegionRef.current === name) return;
+              const stats = computeRegionStats(name, selectedBrandsRef.current);
+              const total = stats?.totalPoints ?? 0;
+              const top2 = stats?.brands.slice(0, 2) ?? [];
+              const top2Html = top2.map(
+                (b) => `<div style="display:flex;align-items:center;gap:4px;margin-top:2px;"><span style="width:6px;height:6px;border-radius:2px;background:${b.color};display:inline-block;"></span><span>${b.brand}</span><span style="margin-left:auto;font-weight:600;">${b.count}</span></div>`
+              ).join("");
+              tooltipDiv.innerHTML = `<div style="font-weight:700;margin-bottom:3px;">${name}</div><div style="color:hsl(210,20%,70%);">Точек: <span style="color:hsl(210,40%,98%);font-weight:600;">${total}</span></div>${top2Html}`;
+              tooltipDiv.style.display = "block";
+            });
+            layer.on("mousemove", (e: any) => {
+              if (selectedRegionRef.current === name) return;
+              const containerPoint = map.latLngToContainerPoint(e.latlng);
+              tooltipDiv.style.left = (containerPoint.x + 12) + "px";
+              tooltipDiv.style.top = (containerPoint.y - 10) + "px";
+            });
+            layer.on("mouseout", () => {
+              tooltipDiv.style.display = "none";
             });
           },
         }).addTo(map);
