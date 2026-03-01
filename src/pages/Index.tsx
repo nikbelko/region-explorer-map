@@ -1,4 +1,6 @@
 import { useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { GitCompare } from "lucide-react";
 import RegionMap from "@/components/RegionMap";
 import BrandFilters from "@/components/BrandFilters";
 import CategoryFilters, { Category, CATEGORIES, CATEGORY_BRAND_MAP } from "@/components/CategoryFilters";
@@ -7,6 +9,7 @@ import InsightsPanel from "@/components/InsightsPanel";
 import { Brand, BRANDS, RegionStats } from "@/data/regions";
 
 const Index = () => {
+  const navigate = useNavigate();
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedBrands, setSelectedBrands] = useState<Brand[]>([...BRANDS]);
   const [selectedCategories, setSelectedCategories] = useState<Category[]>([...CATEGORIES]);
@@ -59,6 +62,13 @@ const Index = () => {
           </div>
           <h1 className="text-lg font-bold text-foreground">Country Explorer</h1>
           <p className="text-xs text-muted-foreground">England • Competitive Intelligence</p>
+          <button
+            onClick={() => navigate("/compare")}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs font-medium rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors mt-2"
+          >
+            <GitCompare className="w-3.5 h-3.5" />
+            Compare brands
+          </button>
         </header>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
