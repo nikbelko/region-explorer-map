@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, CheckSquare, XSquare } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { Brand } from "@/data/regions";
 
@@ -16,6 +17,8 @@ export const CATEGORY_BRAND_MAP: Record<Category, Brand[]> = {
 interface CategoryFiltersProps {
   selectedCategories: Category[];
   onToggleCategory: (cat: Category) => void;
+  onSelectAll?: () => void;
+  onDeselectAll?: () => void;
 }
 
 const CATEGORY_COLORS: Record<Category, string> = {
@@ -25,22 +28,48 @@ const CATEGORY_COLORS: Record<Category, string> = {
   "Гриль": "hsl(20, 80%, 55%)",
 };
 
-const CategoryFilters = ({ selectedCategories, onToggleCategory }: CategoryFiltersProps) => {
+const CategoryFilters = ({ selectedCategories, onToggleCategory, onSelectAll, onDeselectAll }: CategoryFiltersProps) => {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
     <div className="space-y-2">
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center gap-1 w-full group"
-      >
-        <ChevronDown
-          className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`}
-        />
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Категория продукта
-        </h3>
-      </button>
+      <div className="flex items-center justify-between w-full">
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex items-center gap-1 group"
+        >
+          <ChevronDown
+            className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`}
+          />
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Категория продукта
+          </h3>
+        </button>
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onSelectAll}
+                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top"><p className="text-xs">Выбрать все</p></TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onDeselectAll}
+                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+              >
+                <XSquare className="w-3.5 h-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top"><p className="text-xs">Сбросить все</p></TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
 
       {!collapsed && (
         <>

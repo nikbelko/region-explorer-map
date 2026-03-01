@@ -29,7 +29,7 @@ const BrandFilters = ({ selectedBrands, onToggleBrand, onSelectAll, onDeselectAl
             className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`}
           />
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Фильтры брендов
+            Бренды
           </h3>
         </button>
         <div className="flex items-center gap-1">
