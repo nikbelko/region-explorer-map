@@ -146,19 +146,6 @@ const Compare = () => {
     });
   }, [brandA, brandB, restaurants]);
 
-  // Highlight selected region
-  useEffect(() => {
-    if (!layersRef.current) return;
-    layersRef.current.eachLayer((layer: any) => {
-      const isSelected = layer._regionName === selectedRegion;
-      layer.setStyle({
-        fillOpacity: isSelected ? 0.55 : 0.3,
-        weight: isSelected ? 4 : 2,
-      });
-      if (isSelected) layer.bringToFront();
-    });
-  }, [selectedRegion]);
-
   // Compute comparison data
   const comparisons = useMemo<RegionComparison[]>(() => {
     if (!regionsData || restaurants.length === 0) return [];
@@ -192,6 +179,28 @@ const Compare = () => {
 
     return results.sort((a, b) => (b.countA + b.countB) - (a.countA + a.countB));
   }, [regionsData, restaurants, brandA, brandB]);
+
+  // Color regions by leader + highlight selected
+  useEffect(() => {
+    if (!layersRef.current) return;
+    const leaderMap: Record<string, "A" | "B" | "tie"> = {};
+    for (const c of comparisons) {
+      leaderMap[c.region] = c.leader;
+    }
+    layersRef.current.eachLayer((layer: any) => {
+      const name = layer._regionName;
+      const isSelected = name === selectedRegion;
+      const leader = leaderMap[name];
+      const fillColor = leader === "A" ? BRAND_A_COLOR : leader === "B" ? BRAND_B_COLOR : "hsl(220, 15%, 40%)";
+      layer.setStyle({
+        fillColor,
+        fillOpacity: isSelected ? 0.6 : 0.35,
+        weight: isSelected ? 4 : 2,
+        color: isSelected ? "#ffffff" : "rgba(255,255,255,0.4)",
+      });
+      if (isSelected) layer.bringToFront();
+    });
+  }, [selectedRegion, comparisons]);
 
   const totalA = comparisons.reduce((s, c) => s + c.countA, 0);
   const totalB = comparisons.reduce((s, c) => s + c.countB, 0);
