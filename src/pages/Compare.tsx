@@ -25,6 +25,32 @@ const REGION_COLORS = [
   "hsl(60, 70%, 50%)", "hsl(0, 72%, 55%)", "hsl(210, 65%, 55%)",
 ];
 
+type Period = "month" | "quarter" | "year";
+const PERIOD_LABELS: Record<Period, string> = {
+  month: "месяц",
+  quarter: "квартал",
+  year: "год",
+};
+const PERIOD_MULTIPLIERS: Record<Period, number> = {
+  month: 1,
+  quarter: 3,
+  year: 12,
+};
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = s.charCodeAt(i) + ((h << 5) - h);
+  }
+  return h;
+}
+
+function getBrandDynamics(region: string, brand: string, period: Period): number {
+  const base = (Math.abs(hashStr(`${region}:${brand}`)) % 21) - 6;
+  const multiplier = PERIOD_MULTIPLIERS[period];
+  return Math.round(base * multiplier / 3);
+}
+
 interface RegionComparison {
   region: string;
   countA: number;
@@ -40,6 +66,7 @@ const Compare = () => {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [regionsData, setRegionsData] = useState<any>(null);
   const [mapLoading, setMapLoading] = useState(true);
+  const [period, setPeriod] = useState<Period>("quarter");
 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
@@ -170,6 +197,15 @@ const Compare = () => {
   const totalB = comparisons.reduce((s, c) => s + c.countB, 0);
   const overallLeader = totalA > totalB ? "A" : totalB > totalA ? "B" : "tie";
 
+  // Dynamics per region
+  const getDelta = useCallback((region: string) => {
+    const dA = getBrandDynamics(region, brandA, period);
+    const dB = getBrandDynamics(region, brandB, period);
+    return dA - dB;
+  }, [brandA, brandB, period]);
+
+  const totalDelta = comparisons.reduce((s, c) => s + getDelta(c.region), 0);
+
   // Insights
   const insights = useMemo(() => {
     if (comparisons.length === 0) return [];
@@ -202,8 +238,15 @@ const Compare = () => {
       result.push(`Макс. разрыв: ${maxGapWinner} лидирует на ${maxGap} точек в ${maxGapRegion}`);
     }
 
+    // Dynamics insight
+    if (comparisons.length > 0) {
+      const avgA = comparisons.reduce((s, c) => s + getBrandDynamics(c.region, brandA, period), 0) / comparisons.length;
+      const avgB = comparisons.reduce((s, c) => s + getBrandDynamics(c.region, brandB, period), 0) / comparisons.length;
+      result.push(`За ${PERIOD_LABELS[period]} ${brandA} в среднем ${avgA >= 0 ? "+" : ""}${avgA.toFixed(1)} точек/регион vs ${brandB} ${avgB >= 0 ? "+" : ""}${avgB.toFixed(1)}`);
+    }
+
     return result;
-  }, [comparisons, brandA, brandB]);
+  }, [comparisons, brandA, brandB, period]);
 
   const isLoading = dataLoading || mapLoading;
 
@@ -275,8 +318,26 @@ const Compare = () => {
             </div>
           </div>
 
-          {/* Comparison table */}
+          {/* Period selector + Comparison table */}
           <div className="border border-border rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between px-2 py-1.5 border-b border-border/40">
+              <span className="text-[10px] text-muted-foreground">Динамика за</span>
+              <div className="flex items-center gap-0.5">
+                {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPeriod(p)}
+                    className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                      period === p
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    {PERIOD_LABELS[p]}
+                  </button>
+                ))}
+              </div>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-border/40">
@@ -284,29 +345,38 @@ const Compare = () => {
                   <TableHead className="text-[10px] h-8 px-2 text-right" style={{ color: BRAND_A_COLOR }}>A</TableHead>
                   <TableHead className="text-[10px] h-8 px-2 text-right" style={{ color: BRAND_B_COLOR }}>B</TableHead>
                   <TableHead className="text-[10px] h-8 px-2">Leader</TableHead>
+                  <TableHead className="text-[10px] h-8 px-2 text-right">
+                    Δ <span className="text-muted-foreground">(эксп.)</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {comparisons.map((c) => (
-                  <TableRow
-                    key={c.region}
-                    className={`border-b border-border/40 cursor-pointer ${selectedRegion === c.region ? "bg-secondary" : ""}`}
-                    onClick={() => setSelectedRegion(c.region)}
-                  >
-                    <TableCell className="text-xs py-1.5 px-2">{c.region}</TableCell>
-                    <TableCell className="text-xs py-1.5 px-2 text-right font-medium">{c.countA}</TableCell>
-                    <TableCell className="text-xs py-1.5 px-2 text-right font-medium">{c.countB}</TableCell>
-                    <TableCell className="text-xs py-1.5 px-2">
-                      {c.leader === "tie" ? (
-                        <span className="text-muted-foreground">—</span>
-                      ) : (
-                        <span style={{ color: c.leader === "A" ? BRAND_A_COLOR : BRAND_B_COLOR }}>
-                          {c.leader === "A" ? brandA : brandB}
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {comparisons.map((c) => {
+                  const delta = getDelta(c.region);
+                  return (
+                    <TableRow
+                      key={c.region}
+                      className={`border-b border-border/40 cursor-pointer ${selectedRegion === c.region ? "bg-secondary" : ""}`}
+                      onClick={() => setSelectedRegion(c.region)}
+                    >
+                      <TableCell className="text-xs py-1.5 px-2">{c.region}</TableCell>
+                      <TableCell className="text-xs py-1.5 px-2 text-right font-medium">{c.countA}</TableCell>
+                      <TableCell className="text-xs py-1.5 px-2 text-right font-medium">{c.countB}</TableCell>
+                      <TableCell className="text-xs py-1.5 px-2">
+                        {c.leader === "tie" ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          <span style={{ color: c.leader === "A" ? BRAND_A_COLOR : BRAND_B_COLOR }}>
+                            {c.leader === "A" ? brandA : brandB}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className={`text-xs py-1.5 px-2 text-right font-medium ${delta > 0 ? "text-green-400" : delta < 0 ? "text-red-400" : "text-muted-foreground"}`}>
+                        {delta > 0 ? "+" : ""}{delta}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 {comparisons.length > 0 && (
                   <TableRow className="border-t border-border font-semibold">
                     <TableCell className="text-xs py-1.5 px-2">Total</TableCell>
@@ -320,6 +390,9 @@ const Compare = () => {
                           {overallLeader === "A" ? brandA : brandB}
                         </span>
                       )}
+                    </TableCell>
+                    <TableCell className={`text-xs py-1.5 px-2 text-right font-medium ${totalDelta > 0 ? "text-green-400" : totalDelta < 0 ? "text-red-400" : "text-muted-foreground"}`}>
+                      {totalDelta > 0 ? "+" : ""}{totalDelta}
                     </TableCell>
                   </TableRow>
                 )}
