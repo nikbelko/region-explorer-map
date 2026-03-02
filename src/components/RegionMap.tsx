@@ -3,6 +3,7 @@ import L from "leaflet";
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
 import { point as turfPoint } from "@turf/helpers";
 import { Brand, BRAND_CONFIGS, BRAND_COLOR_MAP, RegionStats, BrandStat } from "@/data/regions";
+import { getRegionPopulation, getRegionArea } from "@/data/regionPopulation";
 
 interface RegionMapProps {
   onRegionClick: (regionName: string) => void;
@@ -110,7 +111,7 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
         const tooltipDiv = document.createElement("div");
         tooltipDiv.className = "region-hover-tooltip";
         tooltipDiv.style.cssText =
-          "display:none;position:absolute;z-index:900;pointer-events:none;background:hsl(222,47%,11%,0.9);backdrop-filter:blur(8px);border:1px solid hsl(217,33%,17%);border-radius:8px;padding:6px 10px;font-size:11px;color:hsl(210,40%,98%);box-shadow:0 4px 12px rgba(0,0,0,0.4);max-width:200px;";
+          "display:none;position:absolute;z-index:900;pointer-events:none;background:hsl(222,47%,11%,0.9);backdrop-filter:blur(8px);border:1px solid hsl(217,33%,17%);border-radius:8px;padding:6px 10px;font-size:11px;color:hsl(210,40%,98%);box-shadow:0 4px 12px rgba(0,0,0,0.4);max-width:220px;";
         map.getContainer().appendChild(tooltipDiv);
         (map as any)._regionTooltipDiv = tooltipDiv;
 
@@ -136,7 +137,24 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
               const top2Html = top2.map(
                 (b) => `<div style="display:flex;align-items:center;gap:4px;margin-top:2px;"><span style="width:6px;height:6px;border-radius:2px;background:${b.color};display:inline-block;"></span><span>${b.brand}</span><span style="margin-left:auto;font-weight:600;">${b.count}</span></div>`
               ).join("");
-              tooltipDiv.innerHTML = `<div style="font-weight:700;margin-bottom:3px;">${name}</div><div style="color:hsl(210,20%,70%);">Точек: <span style="color:hsl(210,40%,98%);font-weight:600;">${total}</span></div>${top2Html}`;
+
+              const pop = getRegionPopulation(name);
+              const area = getRegionArea(name);
+              const popDensity = pop && area
+                ? Math.round((pop * 1_000_000) / area)
+                : null;
+
+              const metaHtml = [
+                pop ? `<div style="color:hsl(210,20%,70%);">Население: <span style="color:hsl(210,40%,98%);font-weight:600;">${pop} млн</span></div>` : "",
+                area ? `<div style="color:hsl(210,20%,70%);">Площадь: <span style="color:hsl(210,40%,98%);font-weight:600;">${area.toLocaleString()} км²</span></div>` : "",
+                popDensity ? `<div style="color:hsl(210,20%,70%);">Плотность: <span style="color:hsl(210,40%,98%);font-weight:600;">${popDensity.toLocaleString()} чел/км²</span></div>` : "",
+              ].join("");
+
+              tooltipDiv.innerHTML =
+                `<div style="font-weight:700;margin-bottom:3px;">${name}</div>` +
+                `<div style="color:hsl(210,20%,70%);">Точек: <span style="color:hsl(210,40%,98%);font-weight:600;">${total}</span></div>` +
+                metaHtml +
+                (top2Html ? `<div style="margin-top:3px;border-top:1px solid hsl(217,33%,17%);padding-top:3px;">${top2Html}</div>` : "");
               tooltipDiv.style.display = "block";
             });
             layer.on("mousemove", (e: any) => {
@@ -260,7 +278,7 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
     <div className="relative w-full h-full">
       <div ref={mapRef} className="w-full h-full" />
 
-      {/* Legend - only show active brands */}
+      {/* Legend */}
       <div className="absolute bottom-6 right-6 z-[1000] bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3">
         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Легенда</h4>
         <div className="space-y-1.5">

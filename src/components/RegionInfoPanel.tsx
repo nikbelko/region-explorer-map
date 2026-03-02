@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { RegionStats } from "@/data/regions";
-import { getRegionPopulation } from "@/data/regionPopulation";
+import { getRegionPopulation, getRegionArea } from "@/data/regionPopulation";
 
 type Period = "month" | "quarter" | "year";
 const PERIOD_LABELS: Record<Period, string> = {
@@ -52,6 +52,10 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   }
 
   const population = getRegionPopulation(selectedRegion);
+  const area = getRegionArea(selectedRegion);
+  const populationDensity = population && area
+    ? Math.round((population * 1_000_000) / area)
+    : null;
   const totalPoints = regionStats?.totalPoints ?? 0;
 
   const concentrationIndex = population && population > 0
@@ -63,7 +67,6 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
     ? Math.round(top3Brands.reduce((s, b) => s + b.count, 0) / totalPoints * 100)
     : 0;
 
-  // Total dynamics for the selected period
   const totalDynamics = regionStats?.brands.reduce((sum, b) => {
     return sum + getBrandDynamics(selectedRegion, b.brand, period);
   }, 0) ?? 0;
@@ -116,6 +119,31 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
               <p className="text-[10px] text-muted-foreground leading-tight">Топ-3 доля рынка</p>
               <p className="text-base font-bold text-foreground mt-0.5">
                 {totalPoints > 0 ? `${top3Share}%` : "—"}
+              </p>
+            </div>
+          </div>
+
+          {/* Area & population density row */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-md bg-secondary p-2.5">
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                Площадь
+                <span className="ml-1 text-[10px] opacity-60">(эксп.)</span>
+              </p>
+              <p className="text-base font-bold text-foreground mt-0.5">
+                {area ? `${area.toLocaleString()} км²` : "—"}
+              </p>
+            </div>
+            <div className="rounded-md bg-secondary p-2.5 group/popdensity relative">
+              <p className="text-[10px] text-muted-foreground leading-tight cursor-help">
+                Плотность населения
+                <span className="ml-1 text-[10px] opacity-60">(эксп.)</span>
+                <span className="absolute left-1/2 -translate-x-1/2 -top-8 bg-popover text-popover-foreground text-[10px] px-2 py-1 rounded border border-border whitespace-nowrap opacity-0 group-hover/popdensity:opacity-100 transition-opacity pointer-events-none z-10">
+                  Жителей на км² площади региона
+                </span>
+              </p>
+              <p className="text-base font-bold text-foreground mt-0.5">
+                {populationDensity ? `${populationDensity.toLocaleString()} чел/км²` : "—"}
               </p>
             </div>
           </div>

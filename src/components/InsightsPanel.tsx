@@ -12,20 +12,38 @@ interface InsightsPanelProps {
 
 const InsightsPanel = ({ selectedRegion, regionStats, selectedBrands, selectedCategories }: InsightsPanelProps) => {
   const insights = useMemo(() => {
-    if (!selectedRegion || !regionStats) return [];
+    // GLOBAL insights when no region selected
+    if (!selectedRegion || !regionStats) {
+      const result: string[] = [];
 
+      if (selectedBrands.includes("McDonald's") && selectedBrands.includes("KFC")) {
+        result.push("McDonald's и KFC присутствуют во всех регионах Англии");
+      }
+      if (selectedBrands.includes("Domino's")) {
+        result.push("Domino's — самая распространённая пицца-сеть в стране");
+      }
+      if (selectedBrands.includes("Subway")) {
+        result.push("Subway лидирует в категории сэндвичей по охвату регионов");
+      }
+      if (selectedBrands.includes("Nando's")) {
+        result.push("Nando's сконцентрирован преимущественно в южных регионах");
+      }
+      result.push("Выберите регион на карте для детальных инсайтов");
+
+      return result.slice(0, 4);
+    }
+
+    // REGIONAL insights (existing behavior)
     const result: string[] = [];
 
-    // Per-brand insights from quarterly dynamics
     for (const b of regionStats.brands) {
       if (!selectedBrands.includes(b.brand)) continue;
-      // Pseudo-random quarterly change per brand+region
       let hash = 0;
       const key = `${selectedRegion}:${b.brand}`;
       for (let i = 0; i < key.length; i++) {
         hash = key.charCodeAt(i) + ((hash << 5) - hash);
       }
-      const change = (Math.abs(hash) % 21) - 6; // range roughly -6 to +14
+      const change = (Math.abs(hash) % 21) - 6;
 
       if (change >= 0) {
         result.push(`В ${selectedRegion} бренд ${b.brand} открыл +${change} точек за квартал`);
@@ -34,7 +52,6 @@ const InsightsPanel = ({ selectedRegion, regionStats, selectedBrands, selectedCa
       }
     }
 
-    // Per-category insights
     for (const cat of selectedCategories) {
       const catBrands = CATEGORY_BRAND_MAP[cat].filter((br) => selectedBrands.includes(br));
       if (catBrands.length === 0) continue;
@@ -56,14 +73,14 @@ const InsightsPanel = ({ selectedRegion, regionStats, selectedBrands, selectedCa
     return result;
   }, [selectedRegion, regionStats, selectedBrands, selectedCategories]);
 
-  if (!selectedRegion) return null;
+  const headerText = selectedRegion ? `${selectedRegion} — Инсайты` : "England — Инсайты";
 
   return (
     <div className="absolute bottom-6 left-6 right-64 z-[1000] bg-card/80 backdrop-blur-md border border-border rounded-lg p-3 max-h-32 overflow-y-auto">
       <div className="flex items-center gap-2 mb-2">
         <Lightbulb className="w-3.5 h-3.5 text-primary" />
         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Инсайты
+          {headerText}
         </h4>
       </div>
       {insights.length > 0 ? (
