@@ -89,12 +89,26 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
       <div className="space-y-4">
         <h4 className="text-lg font-bold text-foreground">{selectedRegion}</h4>
 
-        {population && (
-          <p className="text-xs text-muted-foreground italic">
-            Население региона: ~{population} млн
-            <span className="ml-1 text-[10px] opacity-60">(эксп. данные)</span>
-          </p>
-        )}
+        <div className="text-xs text-muted-foreground italic space-y-0.5">
+          {population && (
+            <p>
+              Население: ~{population} млн
+              <span className="ml-1 text-[10px] opacity-60">(эксп.)</span>
+            </p>
+          )}
+          {area && (
+            <p>
+              Площадь: {area.toLocaleString()} км²
+              <span className="ml-1 text-[10px] opacity-60">(эксп.)</span>
+            </p>
+          )}
+          {populationDensity && (
+            <p>
+              Плотность: {populationDensity.toLocaleString()} чел/км²
+              <span className="ml-1 text-[10px] opacity-60">(эксп.)</span>
+            </p>
+          )}
+        </div>
 
         {/* Key metrics block */}
         <div className="grid grid-cols-1 gap-2">
@@ -119,31 +133,6 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
               <p className="text-[10px] text-muted-foreground leading-tight">Топ-3 доля рынка</p>
               <p className="text-base font-bold text-foreground mt-0.5">
                 {totalPoints > 0 ? `${top3Share}%` : "—"}
-              </p>
-            </div>
-          </div>
-
-          {/* Area & population density row */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-md bg-secondary p-2.5">
-              <p className="text-[10px] text-muted-foreground leading-tight">
-                Площадь
-                <span className="ml-1 text-[10px] opacity-60">(эксп.)</span>
-              </p>
-              <p className="text-base font-bold text-foreground mt-0.5">
-                {area ? `${area.toLocaleString()} км²` : "—"}
-              </p>
-            </div>
-            <div className="rounded-md bg-secondary p-2.5 group/popdensity relative">
-              <p className="text-[10px] text-muted-foreground leading-tight cursor-help">
-                Плотность населения
-                <span className="ml-1 text-[10px] opacity-60">(эксп.)</span>
-                <span className="absolute left-1/2 -translate-x-1/2 -top-8 bg-popover text-popover-foreground text-[10px] px-2 py-1 rounded border border-border whitespace-nowrap opacity-0 group-hover/popdensity:opacity-100 transition-opacity pointer-events-none z-10">
-                  Жителей на км² площади региона
-                </span>
-              </p>
-              <p className="text-base font-bold text-foreground mt-0.5">
-                {populationDensity ? `${populationDensity.toLocaleString()} чел/км²` : "—"}
               </p>
             </div>
           </div>
