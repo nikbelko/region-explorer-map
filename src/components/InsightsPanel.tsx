@@ -12,10 +12,8 @@ interface InsightsPanelProps {
 
 const InsightsPanel = ({ selectedRegion, regionStats, selectedBrands, selectedCategories }: InsightsPanelProps) => {
   const insights = useMemo(() => {
-    // GLOBAL insights when no region selected
     if (!selectedRegion || !regionStats) {
       const result: string[] = [];
-
       if (selectedBrands.includes("McDonald's") && selectedBrands.includes("KFC")) {
         result.push("McDonald's и KFC присутствуют во всех регионах Англии");
       }
@@ -29,13 +27,10 @@ const InsightsPanel = ({ selectedRegion, regionStats, selectedBrands, selectedCa
         result.push("Nando's сконцентрирован преимущественно в южных регионах");
       }
       result.push("Выберите регион на карте для детальных инсайтов");
-
       return result.slice(0, 4);
     }
 
-    // REGIONAL insights (existing behavior)
     const result: string[] = [];
-
     for (const b of regionStats.brands) {
       if (!selectedBrands.includes(b.brand)) continue;
       let hash = 0;
@@ -44,7 +39,6 @@ const InsightsPanel = ({ selectedRegion, regionStats, selectedBrands, selectedCa
         hash = key.charCodeAt(i) + ((hash << 5) - hash);
       }
       const change = (Math.abs(hash) % 21) - 6;
-
       if (change >= 0) {
         result.push(`В ${selectedRegion} бренд ${b.brand} открыл +${change} точек за квартал`);
       } else {
@@ -55,28 +49,25 @@ const InsightsPanel = ({ selectedRegion, regionStats, selectedBrands, selectedCa
     for (const cat of selectedCategories) {
       const catBrands = CATEGORY_BRAND_MAP[cat].filter((br) => selectedBrands.includes(br));
       if (catBrands.length === 0) continue;
-
       let hash = 0;
       const key = `${selectedRegion}:cat:${cat}`;
       for (let i = 0; i < key.length; i++) {
         hash = key.charCodeAt(i) + ((hash << 5) - hash);
       }
       const change = (Math.abs(hash) % 25) - 10;
-
       if (change >= 0) {
         result.push(`В ${selectedRegion} точки категории «${cat}» выросли на +${change} за квартал`);
       } else {
         result.push(`В ${selectedRegion} точки категории «${cat}» сократились на ${Math.abs(change)} за квартал`);
       }
     }
-
     return result;
   }, [selectedRegion, regionStats, selectedBrands, selectedCategories]);
 
   const headerText = selectedRegion ? `${selectedRegion} — Инсайты` : "England — Инсайты";
 
   return (
-    <div className="absolute bottom-6 left-6 right-64 z-[1000] bg-card/80 backdrop-blur-md border border-border rounded-lg p-3 max-h-32 overflow-y-auto">
+    <div className="absolute bottom-4 left-4 right-[200px] z-[1000] bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 max-h-32 overflow-y-auto shadow-sm">
       <div className="flex items-center gap-2 mb-2">
         <Lightbulb className="w-3.5 h-3.5 text-primary" />
         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -86,9 +77,7 @@ const InsightsPanel = ({ selectedRegion, regionStats, selectedBrands, selectedCa
       {insights.length > 0 ? (
         <div className="space-y-1">
           {insights.map((text, i) => (
-            <p key={i} className="text-xs text-foreground/80">
-              • {text}
-            </p>
+            <p key={i} className="text-xs text-foreground/80">• {text}</p>
           ))}
         </div>
       ) : (
