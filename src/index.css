@@ -2,59 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
-
-
 @layer base {
   :root {
-    --background: 220 25% 10%;
-    --foreground: 210 20% 92%;
+    --background: 0 0% 97%;
+    --foreground: 220 20% 14%;
 
-    --card: 220 22% 14%;
-    --card-foreground: 210 20% 92%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 14%;
 
-    --popover: 220 22% 14%;
-    --popover-foreground: 210 20% 92%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 14%;
 
-    --primary: 185 72% 48%;
-    --primary-foreground: 220 25% 10%;
+    --primary: 24 95% 53%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 18% 20%;
-    --secondary-foreground: 210 20% 85%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 20% 30%;
 
-    --muted: 220 16% 18%;
-    --muted-foreground: 215 14% 55%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 46%;
 
-    --accent: 185 72% 48%;
-    --accent-foreground: 220 25% 10%;
+    --accent: 24 95% 53%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 55%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 220 16% 22%;
-    --input: 220 16% 22%;
-    --ring: 185 72% 48%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 24 95% 53%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 220 22% 12%;
-    --sidebar-foreground: 210 20% 85%;
-    --sidebar-primary: 185 72% 48%;
-    --sidebar-primary-foreground: 220 25% 10%;
-    --sidebar-accent: 220 16% 18%;
-    --sidebar-accent-foreground: 210 20% 85%;
-    --sidebar-border: 220 16% 22%;
-    --sidebar-ring: 185 72% 48%;
-
-    /* Region colors */
-    --region-1: 185 72% 48%;
-    --region-2: 340 65% 55%;
-    --region-3: 45 85% 55%;
-    --region-4: 130 50% 50%;
-    --region-5: 270 55% 55%;
-    --region-6: 20 80% 55%;
-    --region-7: 200 70% 55%;
-    --region-8: 160 55% 50%;
-    --region-9: 300 50% 55%;
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 213 31% 91%;
+    --sidebar-primary: 24 95% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent-foreground: 213 31% 91%;
+    --sidebar-border: 217 33% 17%;
+    --sidebar-ring: 24 95% 53%;
   }
 }
 
@@ -69,37 +56,37 @@
   }
 }
 
-/* Leaflet overrides for dark theme */
+/* Leaflet overrides for light theme */
 .leaflet-container {
-  background: hsl(220, 25%, 8%) !important;
+  background: hsl(0, 0%, 97%) !important;
 }
 
 .leaflet-control-zoom a {
-  background: hsl(220, 22%, 14%) !important;
-  color: hsl(210, 20%, 92%) !important;
-  border-color: hsl(220, 16%, 22%) !important;
+  background: hsl(0, 0%, 100%) !important;
+  color: hsl(220, 20%, 14%) !important;
+  border-color: hsl(220, 13%, 91%) !important;
 }
 
 .leaflet-control-attribution {
-  background: hsl(220, 22%, 14%, 0.8) !important;
-  color: hsl(215, 14%, 55%) !important;
+  background: hsl(0, 0%, 100%, 0.85) !important;
+  color: hsl(220, 10%, 46%) !important;
   font-size: 10px !important;
 }
 
 .leaflet-control-attribution a {
-  color: hsl(185, 72%, 48%) !important;
+  color: hsl(24, 95%, 53%) !important;
 }
 
 .brand-tooltip {
-  background: hsl(220, 22%, 14%) !important;
-  color: hsl(210, 20%, 92%) !important;
-  border: 1px solid hsl(220, 16%, 22%) !important;
+  background: hsl(0, 0%, 100%) !important;
+  color: hsl(220, 20%, 14%) !important;
+  border: 1px solid hsl(220, 13%, 91%) !important;
   border-radius: 6px !important;
   padding: 4px 8px !important;
   font-size: 11px !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
 }
 
 .brand-tooltip::before {
-  border-top-color: hsl(220, 22%, 14%) !important;
+  border-top-color: hsl(0, 0%, 100%) !important;
 }
