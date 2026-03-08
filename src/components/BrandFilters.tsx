@@ -35,10 +35,7 @@ const BrandFilters = ({ selectedBrands, onToggleBrand, onSelectAll, onDeselectAl
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                onClick={onSelectAll}
-                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
-              >
+              <button onClick={onSelectAll} className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
                 <CheckSquare className="w-3.5 h-3.5" />
               </button>
             </TooltipTrigger>
@@ -46,10 +43,7 @@ const BrandFilters = ({ selectedBrands, onToggleBrand, onSelectAll, onDeselectAl
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                onClick={onDeselectAll}
-                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
-              >
+              <button onClick={onDeselectAll} className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
                 <XSquare className="w-3.5 h-3.5" />
               </button>
             </TooltipTrigger>
@@ -67,7 +61,7 @@ const BrandFilters = ({ selectedBrands, onToggleBrand, onSelectAll, onDeselectAl
               placeholder="Поиск бренда..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-sm rounded-md border border-border bg-secondary/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full pl-8 pr-3 py-1.5 text-sm rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
 
@@ -78,24 +72,24 @@ const BrandFilters = ({ selectedBrands, onToggleBrand, onSelectAll, onDeselectAl
               <div
                 key={brand}
                 onClick={() => onToggleBrand(brand)}
-                className="flex items-center gap-3 cursor-pointer group px-2 py-1.5 rounded-md hover:bg-secondary/50 transition-colors"
+                className="flex items-center gap-3 cursor-pointer group px-2 py-1.5 rounded-md hover:bg-secondary transition-colors"
               >
                 <div
                   className="w-4 h-4 rounded border-2 flex items-center justify-center transition-all"
                   style={{
-                    borderColor: isSelected ? color : "hsl(220, 16%, 30%)",
+                    borderColor: isSelected ? color : "hsl(220, 13%, 80%)",
                     backgroundColor: isSelected ? color : "transparent",
                   }}
                 >
                   {isSelected && (
                     <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path d="M2 5L4 7L8 3" stroke="hsl(220, 25%, 10%)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M2 5L4 7L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                 </div>
                 <span
                   className="text-sm transition-colors"
-                  style={{ color: isSelected ? color : "hsl(210, 20%, 70%)" }}
+                  style={{ color: isSelected ? color : "hsl(220, 10%, 46%)" }}
                 >
                   {brand}
                 </span>
