@@ -36,27 +36,44 @@ const Card = ({ children, className = "" }: { children: React.ReactNode; classNa
   <div className={`mx-2 mt-2 bg-white rounded-lg border border-[#e5e7eb] ${className}`}>{children}</div>
 );
 
-// Расчет максимальных значений по стране для нормализации
-const calculateCountryMax = () => {
-  return {
-    saturation: 35,
-    topShare: 100,
-    chainDensity: 45,
-    growthRate: 60
-  };
+// Максимальные значения по стране (константы)
+const COUNTRY_MAX = {
+  saturation: 35,
+  topShare: 100,
+  chainDensity: 45,
+  growthRate: 60
+};
+
+// Средние значения по стране (константы)
+const COUNTRY_AVG = {
+  saturation: 12.5,
+  topShare: 65,
+  chainDensity: 8.3,
+  growthRate: 15
 };
 
 type TabType = "brands" | "radar";
 
-// Функция для определения цвета vs Avg
-const getVsAvgColor = (value: number | null, metric: string): string => {
-  if (value === null) return "text-gray-400";
+// Функция для определения цвета значения метрики
+const getMetricValueColor = (value: number | null, metric: string, vsAvg: number | null): string => {
+  if (value === null) return "text-gray-900";
   
-  if (metric === "saturation") {
-    return value < 0 ? "text-emerald-500" : "text-red-400";
+  // Для Saturation Index: низкое значение (ниже среднего) = зеленый (хороший потенциал)
+  if (metric === "saturation" && vsAvg !== null) {
+    return vsAvg < 0 ? "text-emerald-600" : "text-gray-900";
   }
   
-  return value > 0 ? "text-emerald-500" : "text-red-400";
+  // Для Chain Density: высокое значение (выше среднего) = красный (высокая конкуренция)
+  if (metric === "chain" && vsAvg !== null) {
+    return vsAvg > 0 ? "text-red-500" : "text-gray-900";
+  }
+  
+  // Для Top share: по умолчанию серый
+  if (metric === "top") {
+    return "text-gray-900";
+  }
+  
+  return "text-gray-900";
 };
 
 // Функция для расчета процентной разницы
@@ -75,6 +92,11 @@ const getConcentrationLabel = (totalBrands: number): string => {
   return "Share";
 };
 
+// Функция для безопасного округления до 2 знаков
+const safeRound = (value: number): number => {
+  return Math.round(value * 100) / 100;
+};
+
 const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionInfoPanelProps) => {
   const [period, setPeriod] = useState<Period>("quarter");
   const [activeTab, setActiveTab] = useState<TabType>("brands");
@@ -86,13 +108,13 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   const populationDensity = population && area ? Math.round((population * 1_000_000) / area) : null;
   const totalPoints = regionStats?.totalPoints ?? 0;
   
-  // Saturation Index — locations per 100K population
+  // Saturation Index
   const saturationIndex =
     population && population > 0
       ? Math.round((totalPoints / (population * 1_000_000)) * 100_000 * 10) / 10
       : null;
   
-  // Chain Density — locations per 1000 km²
+  // Chain Density
   const chainDensity =
     area && area > 0
       ? Math.round((totalPoints / area) * 1000 * 10) / 10
@@ -116,45 +138,44 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   const totalDynamics =
     regionStats?.brands.reduce((sum, b) => sum + getBrandDynamics(selectedRegion, b.brand, period), 0) ?? 0;
 
-  const countryMax = calculateCountryMax();
-  
-  const countryAvg = {
-    saturation: 12.5,
-    topShare: 65,
-    chainDensity: 8.3,
-    growthRate: 15
-  };
-  
-  const vsAvgSaturation = saturationIndex !== null ? Math.round((saturationIndex - countryAvg.saturation) * 10) / 10 : null;
-  const vsAvgTopShare = topShare > 0 ? Math.round(topShare - countryAvg.topShare) : null;
-  const vsAvgChainDensity = chainDensity !== null ? Math.round((chainDensity - countryAvg.chainDensity) * 10) / 10 : null;
-  const vsAvgGrowthRate = totalDynamics - countryAvg.growthRate;
+  // Разница с средним по стране
+  const vsAvgSaturation = saturationIndex !== null ? Math.round((saturationIndex - COUNTRY_AVG.saturation) * 10) / 10 : null;
+  const vsAvgTopShare = topShare > 0 ? Math.round(topShare - COUNTRY_AVG.topShare) : null;
+  const vsAvgChainDensity = chainDensity !== null ? Math.round((chainDensity - COUNTRY_AVG.chainDensity) * 10) / 10 : null;
+  const vsAvgGrowthRate = totalDynamics - COUNTRY_AVG.growthRate;
 
-  const percentDiffSaturation = saturationIndex !== null ? getPercentDiff(saturationIndex, countryAvg.saturation) : "";
-  const percentDiffTop = topShare > 0 ? getPercentDiff(topShare, countryAvg.topShare) : "";
-  const percentDiffChain = chainDensity !== null ? getPercentDiff(chainDensity, countryAvg.chainDensity) : "";
-  const percentDiffGrowth = getPercentDiff(totalDynamics, countryAvg.growthRate);
+  // Процентные разницы для тултипа
+  const percentDiffSaturation = saturationIndex !== null ? getPercentDiff(saturationIndex, COUNTRY_AVG.saturation) : "";
+  const percentDiffTop = topShare > 0 ? getPercentDiff(topShare, COUNTRY_AVG.topShare) : "";
+  const percentDiffChain = chainDensity !== null ? getPercentDiff(chainDensity, COUNTRY_AVG.chainDensity) : "";
+  const percentDiffGrowth = getPercentDiff(totalDynamics, COUNTRY_AVG.growthRate);
 
-  // Нормализация для региона
+  // Нормализация для РЕГИОНА
   const normalizedRegionSaturation = saturationIndex !== null 
-    ? saturationIndex / countryMax.saturation
+    ? Math.min(saturationIndex / COUNTRY_MAX.saturation, 1)
     : 0;
   
-  const invertedRegionSaturation = 1 - normalizedRegionSaturation;
+  const invertedRegionSaturation = safeRound(1 - normalizedRegionSaturation);
   
-  const normalizedRegionTop = topShare / countryMax.topShare;
+  const normalizedRegionTop = topShare > 0 
+    ? Math.min(topShare / COUNTRY_MAX.topShare, 1)
+    : 0;
+  
   const normalizedRegionChain = chainDensity !== null 
-    ? chainDensity / countryMax.chainDensity
+    ? Math.min(chainDensity / COUNTRY_MAX.chainDensity, 1)
     : 0;
-  const normalizedRegionGrowth = Math.abs(totalDynamics) / countryMax.growthRate;
-
-  // Нормализация для среднего по стране
-  const normalizedAvgSaturation = countryAvg.saturation / countryMax.saturation;
-  const invertedAvgSaturation = 1 - normalizedAvgSaturation;
   
-  const normalizedAvgTop = countryAvg.topShare / countryMax.topShare;
-  const normalizedAvgChain = countryAvg.chainDensity / countryMax.chainDensity;
-  const normalizedAvgGrowth = Math.abs(countryAvg.growthRate) / countryMax.growthRate;
+  const normalizedRegionGrowth = totalDynamics !== 0
+    ? Math.min(Math.abs(totalDynamics) / COUNTRY_MAX.growthRate, 1)
+    : 0;
+
+  // Нормализация для СРЕДНЕГО ПО СТРАНЕ
+  const normalizedAvgSaturation = Math.min(COUNTRY_AVG.saturation / COUNTRY_MAX.saturation, 1);
+  const invertedAvgSaturation = safeRound(1 - normalizedAvgSaturation);
+  
+  const normalizedAvgTop = Math.min(COUNTRY_AVG.topShare / COUNTRY_MAX.topShare, 1);
+  const normalizedAvgChain = Math.min(COUNTRY_AVG.chainDensity / COUNTRY_MAX.chainDensity, 1);
+  const normalizedAvgGrowth = Math.min(Math.abs(COUNTRY_AVG.growthRate) / COUNTRY_MAX.growthRate, 1);
 
   const radarData = [
     {
@@ -162,7 +183,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
       region: invertedRegionSaturation,
       country: invertedAvgSaturation,
       originalRegion: saturationIndex,
-      originalCountry: countryAvg.saturation,
+      originalCountry: COUNTRY_AVG.saturation,
       percentDiff: percentDiffSaturation,
     },
     {
@@ -170,7 +191,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
       region: normalizedRegionTop,
       country: normalizedAvgTop,
       originalRegion: topShare,
-      originalCountry: countryAvg.topShare,
+      originalCountry: COUNTRY_AVG.topShare,
       percentDiff: percentDiffTop,
     },
     {
@@ -178,7 +199,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
       region: normalizedRegionChain,
       country: normalizedAvgChain,
       originalRegion: chainDensity,
-      originalCountry: countryAvg.chainDensity,
+      originalCountry: COUNTRY_AVG.chainDensity,
       percentDiff: percentDiffChain,
     },
     {
@@ -186,7 +207,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
       region: normalizedRegionGrowth,
       country: normalizedAvgGrowth,
       originalRegion: totalDynamics,
-      originalCountry: countryAvg.growthRate,
+      originalCountry: COUNTRY_AVG.growthRate,
       percentDiff: percentDiffGrowth,
     },
   ];
@@ -242,9 +263,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
               <p className="text-3xl font-black text-blue-600 leading-none">{totalPoints}</p>
               {vsAvgTopShare !== null && (
                 <p className="text-[9px] text-gray-400 mb-1">
-                  vs Avg <span className={getVsAvgColor(vsAvgTopShare, "top")}>
-                    {vsAvgTopShare >= 0 ? "+" : ""}{vsAvgTopShare}
-                  </span>
+                  vs Avg {vsAvgTopShare >= 0 ? "+" : ""}{vsAvgTopShare}
                 </p>
               )}
             </div>
@@ -258,9 +277,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
               </p>
               {vsAvgTopShare !== null && (
                 <p className="text-[9px] text-gray-400 mb-1">
-                  vs Avg <span className={getVsAvgColor(vsAvgTopShare, "top")}>
-                    {vsAvgTopShare >= 0 ? "+" : ""}{vsAvgTopShare}%
-                  </span>
+                  vs Avg {vsAvgTopShare >= 0 ? "+" : ""}{vsAvgTopShare}%
                 </p>
               )}
             </div>
@@ -269,6 +286,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
 
         {/* Второй ряд: Saturation Index + Chain Density */}
         <div className="grid grid-cols-2 gap-2">
+          {/* Saturation Index — зеленый если ниже среднего */}
           <div className="relative group bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
             <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 cursor-help underline decoration-dotted decoration-gray-300">
               Saturation Index
@@ -278,19 +296,22 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
               <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
             </div>
             <div className="flex items-end justify-between">
-              <p className="text-3xl font-black text-gray-900 leading-none">
+              <p className={`text-3xl font-black leading-none ${
+                saturationIndex !== null && vsAvgSaturation !== null && vsAvgSaturation < 0
+                  ? "text-emerald-600"
+                  : "text-gray-900"
+              }`}>
                 {saturationIndex !== null ? saturationIndex : "—"}
               </p>
               {vsAvgSaturation !== null && (
                 <p className="text-[9px] text-gray-400 mb-1">
-                  vs Avg <span className={getVsAvgColor(vsAvgSaturation, "saturation")}>
-                    {vsAvgSaturation >= 0 ? "+" : ""}{vsAvgSaturation}
-                  </span>
+                  vs Avg {vsAvgSaturation >= 0 ? "+" : ""}{vsAvgSaturation}
                 </p>
               )}
             </div>
           </div>
           
+          {/* Chain Density — красный если выше среднего */}
           <div className="relative group bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
             <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 cursor-help underline decoration-dotted decoration-gray-300">
               Chain Density
@@ -300,14 +321,16 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
               <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
             </div>
             <div className="flex items-end justify-between">
-              <p className="text-3xl font-black text-gray-900 leading-none">
+              <p className={`text-3xl font-black leading-none ${
+                chainDensity !== null && vsAvgChainDensity !== null && vsAvgChainDensity > 0
+                  ? "text-red-500"
+                  : "text-gray-900"
+              }`}>
                 {chainDensity !== null ? chainDensity : "—"}
               </p>
               {vsAvgChainDensity !== null && (
                 <p className="text-[9px] text-gray-400 mb-1">
-                  vs Avg <span className={getVsAvgColor(vsAvgChainDensity, "chain")}>
-                    {vsAvgChainDensity >= 0 ? "+" : ""}{vsAvgChainDensity}
-                  </span>
+                  vs Avg {vsAvgChainDensity >= 0 ? "+" : ""}{vsAvgChainDensity}
                 </p>
               )}
             </div>
@@ -348,9 +371,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
           
           {vsAvgGrowthRate !== null && (
             <p className="text-[9px] text-gray-400">
-              vs Avg <span className={getVsAvgColor(vsAvgGrowthRate, "growth")}>
-                {vsAvgGrowthRate >= 0 ? "+" : ""}{vsAvgGrowthRate}
-              </span>
+              vs Avg {vsAvgGrowthRate >= 0 ? "+" : ""}{vsAvgGrowthRate}
             </p>
           )}
         </div>
@@ -417,7 +438,12 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
               <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
                 <PolarGrid stroke="#e5e7eb" />
                 <PolarAngleAxis dataKey="subject" tick={{ fill: '#6b7280', fontSize: 9 }} />
-                <PolarRadiusAxis angle={30} domain={[0, 1]} tick={{ fontSize: 8, formatter: (value) => `${Math.round(value * 100)}%` }} />
+                <PolarRadiusAxis 
+                  angle={30} 
+                  domain={[0, 1]} 
+                  tick={{ fontSize: 8, formatter: (value) => `${Math.round(value * 100)}%` }}
+                  allowDataOverflow={false}
+                />
                 
                 <Radar
                   name="Country Avg"
@@ -444,7 +470,6 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
                   formatter={(value: number, name: string, props: any) => {
                     const payload = props.payload;
                     
-                    // Для Country Avg
                     if (name === "Country Avg") {
                       let formattedCountry = payload.originalCountry;
                       if (payload.subject === 'Top-3 share' || payload.subject === 'Top-2 share' || payload.subject === 'Top-1 share') {
@@ -458,7 +483,6 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
                       return [formattedCountry, "Country Avg"];
                     }
                     
-                    // Для региона
                     const regionValue = payload.originalRegion;
                     const percentText = payload.percentDiff ? ` (${payload.percentDiff} vs Avg)` : '';
                     
