@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { X, TrendingUp, TrendingDown } from "lucide-react";
 import { RegionStats } from "@/data/regions";
 import { getRegionPopulation, getRegionArea } from "@/data/regionPopulation";
@@ -38,12 +38,11 @@ const Card = ({ children, className = "" }: { children: React.ReactNode; classNa
 
 // Расчет максимальных значений по стране для нормализации
 const calculateCountryMax = () => {
-  // В реальном приложении нужно передавать реальные максимумы по всем регионам
   return {
-    saturation: 35, // Максимальная насыщенность (ресторанов на 100K)
-    topShare: 100, // Максимальная доля топ-N (100%)
-    chainDensity: 45, // Максимальная плотность сетей (ресторанов на 1000 км²)
-    growthRate: 60 // Максимальный рост (в абсолютных цифрах)
+    saturation: 35,
+    topShare: 100,
+    chainDensity: 45,
+    growthRate: 60
   };
 };
 
@@ -53,12 +52,10 @@ type TabType = "brands" | "radar";
 const getVsAvgColor = (value: number | null, metric: string): string => {
   if (value === null) return "text-gray-400";
   
-  // Для Saturation Index: отрицательное vs Avg = хорошо (рынок свободен) → зеленый
   if (metric === "saturation") {
     return value < 0 ? "text-emerald-500" : "text-red-400";
   }
   
-  // Для остальных метрик: положительное vs Avg = хорошо → зеленый
   return value > 0 ? "text-emerald-500" : "text-red-400";
 };
 
@@ -75,7 +72,7 @@ const getConcentrationLabel = (totalBrands: number): string => {
   if (totalBrands >= 4) return "Top-3 share";
   if (totalBrands === 3) return "Top-2 share";
   if (totalBrands === 2) return "Top-1 share";
-  return "Share"; // fallback
+  return "Share";
 };
 
 const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionInfoPanelProps) => {
@@ -101,11 +98,10 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
       ? Math.round((totalPoints / area) * 1000 * 10) / 10
       : null;
   
-  // Динамическая метрика концентрации в зависимости от количества брендов
+  // Динамическая метрика концентрации
   const totalBrandsInRegion = regionStats?.brands.length ?? 0;
   const concentrationLabel = getConcentrationLabel(totalBrandsInRegion);
   
-  // Определяем, сколько брендов берем для расчета концентрации
   let topBrandsCount = 3;
   if (totalBrandsInRegion === 3) topBrandsCount = 2;
   else if (totalBrandsInRegion === 2) topBrandsCount = 1;
@@ -120,36 +116,30 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   const totalDynamics =
     regionStats?.brands.reduce((sum, b) => sum + getBrandDynamics(selectedRegion, b.brand, period), 0) ?? 0;
 
-  // Максимальные значения по стране для нормализации
   const countryMax = calculateCountryMax();
   
-  // Средние значения для vs Avg (в реальном приложении нужно передавать)
-  // Для концентрации используем среднее по стране для топ-3, но в реальности нужно адаптировать
   const countryAvg = {
     saturation: 12.5,
-    topShare: 65, // Это среднее для топ-3, для других случаев нужно пересчитывать
+    topShare: 65,
     chainDensity: 8.3,
     growthRate: 15
   };
   
-  // Разница с средним по стране (для отображения vs Avg)
   const vsAvgSaturation = saturationIndex !== null ? Math.round((saturationIndex - countryAvg.saturation) * 10) / 10 : null;
   const vsAvgTopShare = topShare > 0 ? Math.round(topShare - countryAvg.topShare) : null;
   const vsAvgChainDensity = chainDensity !== null ? Math.round((chainDensity - countryAvg.chainDensity) * 10) / 10 : null;
   const vsAvgGrowthRate = totalDynamics - countryAvg.growthRate;
 
-  // Процентные разницы для тултипа
   const percentDiffSaturation = saturationIndex !== null ? getPercentDiff(saturationIndex, countryAvg.saturation) : "";
   const percentDiffTop = topShare > 0 ? getPercentDiff(topShare, countryAvg.topShare) : "";
   const percentDiffChain = chainDensity !== null ? getPercentDiff(chainDensity, countryAvg.chainDensity) : "";
   const percentDiffGrowth = getPercentDiff(totalDynamics, countryAvg.growthRate);
 
-  // Нормализация по максимуму для РЕГИОНА (значения от 0 до 1)
+  // Нормализация для региона
   const normalizedRegionSaturation = saturationIndex !== null 
     ? saturationIndex / countryMax.saturation
     : 0;
   
-  // Инвертированная насыщенность для оси Saturation (чем меньше, тем лучше)
   const invertedRegionSaturation = 1 - normalizedRegionSaturation;
   
   const normalizedRegionTop = topShare / countryMax.topShare;
@@ -158,7 +148,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
     : 0;
   const normalizedRegionGrowth = Math.abs(totalDynamics) / countryMax.growthRate;
 
-  // Нормализация по максимуму для СРЕДНЕГО ПО СТРАНЕ (те же правила)
+  // Нормализация для среднего по стране
   const normalizedAvgSaturation = countryAvg.saturation / countryMax.saturation;
   const invertedAvgSaturation = 1 - normalizedAvgSaturation;
   
@@ -166,7 +156,6 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   const normalizedAvgChain = countryAvg.chainDensity / countryMax.chainDensity;
   const normalizedAvgGrowth = Math.abs(countryAvg.growthRate) / countryMax.growthRate;
 
-  // Данные для радарной диаграммы
   const radarData = [
     {
       subject: 'Saturation',
@@ -175,7 +164,6 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
       originalRegion: saturationIndex,
       originalCountry: countryAvg.saturation,
       percentDiff: percentDiffSaturation,
-      tooltipLabel: 'Saturation Index'
     },
     {
       subject: concentrationLabel,
@@ -184,7 +172,6 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
       originalRegion: topShare,
       originalCountry: countryAvg.topShare,
       percentDiff: percentDiffTop,
-      tooltipLabel: concentrationLabel
     },
     {
       subject: 'Chain Density',
@@ -193,7 +180,6 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
       originalRegion: chainDensity,
       originalCountry: countryAvg.chainDensity,
       percentDiff: percentDiffChain,
-      tooltipLabel: 'Chain Density'
     },
     {
       subject: 'Growth Rate',
@@ -202,7 +188,6 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
       originalRegion: totalDynamics,
       originalCountry: countryAvg.growthRate,
       percentDiff: percentDiffGrowth,
-      tooltipLabel: 'Growth Rate'
     },
   ];
 
@@ -223,7 +208,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         </button>
       </Card>
 
-      {/* Geo stats — 3 columns with dividers */}
+      {/* Geo stats */}
       <Card className="px-0 py-3 flex-shrink-0">
         <div className="flex items-stretch divide-x divide-gray-100">
           <div className="flex-1 px-3 min-w-0">
@@ -247,11 +232,10 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         </div>
       </Card>
 
-      {/* Metrics — два ряда по две метрики */}
+      {/* Metrics */}
       <div className="mx-2 mt-2 flex flex-col gap-2 flex-shrink-0">
         {/* Первый ряд: Locations + концентрация */}
         <div className="grid grid-cols-2 gap-2">
-          {/* Locations — синее значение */}
           <div className="bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
             <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Locations</p>
             <div className="flex items-end justify-between">
@@ -266,7 +250,6 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             </div>
           </div>
           
-          {/* Концентрация (динамическое название) */}
           <div className="bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
             <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">{concentrationLabel}</p>
             <div className="flex items-end justify-between">
@@ -286,12 +269,10 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
 
         {/* Второй ряд: Saturation Index + Chain Density */}
         <div className="grid grid-cols-2 gap-2">
-          {/* Saturation Index with tooltip */}
           <div className="relative group bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
             <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 cursor-help underline decoration-dotted decoration-gray-300">
               Saturation Index
             </p>
-            {/* Tooltip */}
             <div className="pointer-events-none absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 shadow-lg">
               Locations per 100K population
               <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
@@ -310,12 +291,10 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             </div>
           </div>
           
-          {/* Chain Density with tooltip */}
           <div className="relative group bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
             <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 cursor-help underline decoration-dotted decoration-gray-300">
               Chain Density
             </p>
-            {/* Tooltip */}
             <div className="pointer-events-none absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 shadow-lg">
               Locations per 1000 km²
               <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
@@ -336,7 +315,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         </div>
       </div>
 
-      {/* Growth Rate Card с заголовком и переключателем внутри */}
+      {/* Growth Rate Card */}
       <Card className="px-4 py-3 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
           <p className="text-[10px] text-gray-400 uppercase tracking-wider">Growth Rate</p>
@@ -367,7 +346,6 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             <span className="text-[10px] text-gray-400">(exp.)</span>
           </div>
           
-          {/* vs Avg для Growth rate справа от значения */}
           {vsAvgGrowthRate !== null && (
             <p className="text-[9px] text-gray-400">
               vs Avg <span className={getVsAvgColor(vsAvgGrowthRate, "growth")}>
@@ -404,7 +382,6 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
 
       {/* Tab Content */}
       {activeTab === "brands" ? (
-        /* Brand breakdown */
         <Card className="flex-1 overflow-hidden flex flex-col mt-0">
           {regionStats && regionStats.totalPoints > 0 ? (
             <div className="px-4 py-3 space-y-2.5 overflow-y-auto h-full">
@@ -433,7 +410,6 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
           )}
         </Card>
       ) : (
-        /* Radar Chart */
         <Card className="p-3 flex-1 flex flex-col mt-0">
           <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Region vs Country Average</p>
           <div className="flex-1 min-h-0">
@@ -442,7 +418,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
                 <PolarGrid stroke="#e5e7eb" />
                 <PolarAngleAxis dataKey="subject" tick={{ fill: '#6b7280', fontSize: 9 }} />
                 <PolarRadiusAxis angle={30} domain={[0, 1]} tick={{ fontSize: 8, formatter: (value) => `${Math.round(value * 100)}%` }} />
-                {/* Country Average — пунктирный контур, слабая заливка */}
+                
                 <Radar
                   name="Country Avg"
                   dataKey="country"
@@ -452,7 +428,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
                   fill="#9ca3af"
                   fillOpacity={0.1}
                 />
-                {/* Region — яркая заливка */}
+                
                 <Radar
                   name={selectedRegion}
                   dataKey="region"
@@ -461,31 +437,43 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
                   fill="#3B82F6"
                   fillOpacity={0.4}
                 />
+                
                 <Tooltip 
                   contentStyle={{ fontSize: '10px', padding: '4px 8px' }}
                   itemStyle={{ fontSize: '10px' }}
                   formatter={(value: number, name: string, props: any) => {
                     const payload = props.payload;
                     
-                    // Для Country Avg показываем просто значение
+                    // Для Country Avg
                     if (name === "Country Avg") {
-                      return [`Country Avg: ${payload.originalCountry}`, payload.tooltipLabel];
+                      let formattedCountry = payload.originalCountry;
+                      if (payload.subject === 'Top-3 share' || payload.subject === 'Top-2 share' || payload.subject === 'Top-1 share') {
+                        formattedCountry = `${payload.originalCountry}%`;
+                      } else if (payload.subject === 'Saturation' || payload.subject === 'Chain Density') {
+                        formattedCountry = payload.originalCountry?.toFixed(1);
+                      } else if (payload.subject === 'Growth Rate') {
+                        formattedCountry = payload.originalCountry >= 0 ? `+${payload.originalCountry}` : `${payload.originalCountry}`;
+                      }
+                      
+                      return [formattedCountry, "Country Avg"];
                     }
                     
-                    // Для региона показываем значение с процентной разницей
+                    // Для региона
                     const regionValue = payload.originalRegion;
                     const percentText = payload.percentDiff ? ` (${payload.percentDiff} vs Avg)` : '';
                     
-                    // Форматируем значение в зависимости от типа метрики
-                    let formattedValue = regionValue;
-                    if (payload.subject === concentrationLabel || payload.subject === 'Top-3 share' || payload.subject === 'Top-2 share' || payload.subject === 'Top-1 share') {
-                      formattedValue = `${regionValue}%`;
+                    let formattedRegion = regionValue;
+                    if (payload.subject === 'Top-3 share' || payload.subject === 'Top-2 share' || payload.subject === 'Top-1 share') {
+                      formattedRegion = `${regionValue}%`;
                     } else if (payload.subject === 'Saturation' || payload.subject === 'Chain Density') {
-                      formattedValue = regionValue?.toFixed(1);
+                      formattedRegion = regionValue?.toFixed(1);
+                    } else if (payload.subject === 'Growth Rate') {
+                      formattedRegion = regionValue >= 0 ? `+${regionValue}` : `${regionValue}`;
                     }
                     
-                    return [`${selectedRegion}: ${formattedValue}${percentText}`, payload.tooltipLabel];
+                    return [`${formattedRegion}${percentText}`, selectedRegion];
                   }}
+                  labelFormatter={(label) => label}
                 />
               </RadarChart>
             </ResponsiveContainer>
