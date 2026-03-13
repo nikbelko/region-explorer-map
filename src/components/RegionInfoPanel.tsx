@@ -62,6 +62,14 @@ const getVsAvgColor = (value: number | null, metric: string): string => {
   return value > 0 ? "text-emerald-500" : "text-red-400";
 };
 
+// Функция для расчета процентной разницы
+const getPercentDiff = (value: number, avg: number): string => {
+  if (avg === 0) return "";
+  const diff = ((value - avg) / Math.abs(avg)) * 100;
+  const roundedDiff = Math.round(diff * 10) / 10;
+  return `${roundedDiff > 0 ? '+' : ''}${roundedDiff}%`;
+};
+
 const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionInfoPanelProps) => {
   const [period, setPeriod] = useState<Period>("quarter");
   const [activeTab, setActiveTab] = useState<TabType>("brands");
@@ -108,49 +116,70 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   const vsAvgChainDensity = chainDensity !== null ? Math.round((chainDensity - countryAvg.chainDensity) * 10) / 10 : null;
   const vsAvgGrowthRate = totalDynamics - countryAvg.growthRate;
 
-  // Нормализация по максимуму (значения от 0 до 1)
-  const normalizedSaturation = saturationIndex !== null 
+  // Процентные разницы для тултипа
+  const percentDiffSaturation = saturationIndex !== null ? getPercentDiff(saturationIndex, countryAvg.saturation) : "";
+  const percentDiffTop3 = top3Share > 0 ? getPercentDiff(top3Share, countryAvg.top3Share) : "";
+  const percentDiffChain = chainDensity !== null ? getPercentDiff(chainDensity, countryAvg.chainDensity) : "";
+  const percentDiffGrowth = getPercentDiff(totalDynamics, countryAvg.growthRate);
+
+  // Нормализация по максимуму для РЕГИОНА (значения от 0 до 1)
+  const normalizedRegionSaturation = saturationIndex !== null 
     ? saturationIndex / countryMax.saturation
     : 0;
   
   // Инвертированная насыщенность для оси Saturation (чем меньше, тем лучше)
-  // 1 - (текущая/макс) = чем меньше ресторанов, тем ближе к 1
-  const invertedSaturation = 1 - normalizedSaturation;
+  const invertedRegionSaturation = 1 - normalizedRegionSaturation;
   
-  const normalizedTop3Share = top3Share / countryMax.top3Share;
-  const normalizedChainDensity = chainDensity !== null 
+  const normalizedRegionTop3 = top3Share / countryMax.top3Share;
+  const normalizedRegionChain = chainDensity !== null 
     ? chainDensity / countryMax.chainDensity
     : 0;
-  const normalizedGrowthRate = Math.abs(totalDynamics) / countryMax.growthRate;
+  const normalizedRegionGrowth = Math.abs(totalDynamics) / countryMax.growthRate;
 
-  // Данные для радарной диаграммы (нормализованные)
+  // Нормализация по максимуму для СРЕДНЕГО ПО СТРАНЕ (те же правила)
+  const normalizedAvgSaturation = countryAvg.saturation / countryMax.saturation;
+  const invertedAvgSaturation = 1 - normalizedAvgSaturation;
+  
+  const normalizedAvgTop3 = countryAvg.top3Share / countryMax.top3Share;
+  const normalizedAvgChain = countryAvg.chainDensity / countryMax.chainDensity;
+  const normalizedAvgGrowth = Math.abs(countryAvg.growthRate) / countryMax.growthRate;
+
+  // Данные для радарной диаграммы
   const radarData = [
     {
       subject: 'Saturation',
-      region: invertedSaturation,
+      region: invertedRegionSaturation,
+      country: invertedAvgSaturation,
       originalRegion: saturationIndex,
-      originalAvg: countryAvg.saturation,
+      originalCountry: countryAvg.saturation,
+      percentDiff: percentDiffSaturation,
       tooltipLabel: 'Saturation Index (inverted)'
     },
     {
       subject: 'Top-3 Share',
-      region: normalizedTop3Share,
+      region: normalizedRegionTop3,
+      country: normalizedAvgTop3,
       originalRegion: top3Share,
-      originalAvg: countryAvg.top3Share,
+      originalCountry: countryAvg.top3Share,
+      percentDiff: percentDiffTop3,
       tooltipLabel: 'Top-3 Share'
     },
     {
       subject: 'Chain Density',
-      region: normalizedChainDensity,
+      region: normalizedRegionChain,
+      country: normalizedAvgChain,
       originalRegion: chainDensity,
-      originalAvg: countryAvg.chainDensity,
+      originalCountry: countryAvg.chainDensity,
+      percentDiff: percentDiffChain,
       tooltipLabel: 'Chain Density'
     },
     {
       subject: 'Growth Rate',
-      region: normalizedGrowthRate,
+      region: normalizedRegionGrowth,
+      country: normalizedAvgGrowth,
       originalRegion: totalDynamics,
-      originalAvg: countryAvg.growthRate,
+      originalCountry: countryAvg.growthRate,
+      percentDiff: percentDiffGrowth,
       tooltipLabel: 'Growth Rate'
     },
   ];
@@ -391,36 +420,47 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
                 <PolarGrid stroke="#e5e7eb" />
                 <PolarAngleAxis dataKey="subject" tick={{ fill: '#6b7280', fontSize: 9 }} />
                 <PolarRadiusAxis angle={30} domain={[0, 1]} tick={{ fontSize: 8, formatter: (value) => `${Math.round(value * 100)}%` }} />
+                {/* Country Average — пунктирный контур, слабая заливка */}
+                <Radar
+                  name="Country Avg"
+                  dataKey="country"
+                  stroke="#9ca3af"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
+                  fill="#9ca3af"
+                  fillOpacity={0.1}
+                />
+                {/* Region — яркая заливка */}
                 <Radar
                   name={selectedRegion}
                   dataKey="region"
                   stroke="#3B82F6"
+                  strokeWidth={2}
                   fill="#3B82F6"
-                  fillOpacity={0.3}
+                  fillOpacity={0.4}
                 />
                 <Tooltip 
                   contentStyle={{ fontSize: '10px', padding: '4px 8px' }}
                   itemStyle={{ fontSize: '10px' }}
                   formatter={(value: number, name: string, props: any) => {
                     const payload = props.payload;
-                    const regionValue = payload.originalRegion;
-                    const avgValue = payload.originalAvg;
                     
-                    let formattedRegion = regionValue;
-                    let formattedAvg = avgValue;
-                    
-                    if (payload.subject === 'Top-3 Share') {
-                      formattedRegion = `${regionValue}%`;
-                      formattedAvg = `${avgValue}%`;
-                    } else if (payload.subject === 'Saturation' || payload.subject === 'Chain Density') {
-                      formattedRegion = regionValue?.toFixed(1);
-                      formattedAvg = avgValue?.toFixed(1);
+                    if (name === "Country Avg") {
+                      return [`${payload.tooltipLabel}: ${payload.originalCountry}`, name];
                     }
                     
-                    return [
-                      `${payload.tooltipLabel}: ${formattedRegion} (vs avg ${formattedAvg})`,
-                      name
-                    ];
+                    // Для региона показываем с процентной разницей
+                    const regionValue = payload.originalRegion;
+                    const percentText = payload.percentDiff ? ` (${payload.percentDiff} vs Avg)` : '';
+                    
+                    let formattedValue = regionValue;
+                    if (payload.subject === 'Top-3 Share') {
+                      formattedValue = `${regionValue}%`;
+                    } else if (payload.subject === 'Saturation' || payload.subject === 'Chain Density') {
+                      formattedValue = regionValue?.toFixed(1);
+                    }
+                    
+                    return [`${payload.tooltipLabel}: ${formattedValue}${percentText}`, name];
                   }}
                 />
               </RadarChart>
@@ -430,6 +470,10 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             <div className="flex items-center gap-1">
               <div className="w-2 h-2 bg-blue-500 rounded-full" />
               <span className="text-[9px] text-gray-500">{selectedRegion}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 bg-gray-400 rounded-full" />
+              <span className="text-[9px] text-gray-500">Country Avg</span>
             </div>
           </div>
           <p className="text-[8px] text-gray-400 text-center mt-1">
