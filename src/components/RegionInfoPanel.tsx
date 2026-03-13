@@ -65,47 +65,60 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         </button>
       </Card>
 
-      {/* Geo stats — 3 columns */}
-      <Card className="px-4 py-3 flex-shrink-0">
-        <div className="grid grid-cols-3 gap-3">
-          <div>
+      {/* Geo stats — 3 columns with light vertical dividers */}
+      <Card className="px-0 py-3 flex-shrink-0">
+        <div className="flex items-stretch divide-x divide-gray-100">
+          <div className="flex-1 px-4">
             <p className="text-[11px] text-gray-400 mb-0.5">Area</p>
-            <p className="text-[13px] font-bold text-gray-700 leading-tight">{area ? `${area.toLocaleString()} km²` : "—"}</p>
+            <p className="text-[13px] font-bold text-gray-700 leading-tight">
+              {area ? `${area.toLocaleString()} km²` : "—"}
+            </p>
           </div>
-          <div>
+          <div className="flex-1 px-4">
             <p className="text-[11px] text-gray-400 mb-0.5">Population</p>
-            <p className="text-[13px] font-bold text-gray-700 leading-tight">{population ? `${population}M` : "—"}</p>
+            <p className="text-[13px] font-bold text-gray-700 leading-tight">
+              {population ? `${population}M` : "—"}
+            </p>
           </div>
-          <div>
+          <div className="flex-1 px-4">
             <p className="text-[11px] text-gray-400 mb-0.5">Density</p>
-            <p className="text-[13px] font-bold text-gray-700 leading-tight">{populationDensity ? `${populationDensity.toLocaleString()} /km²` : "—"}</p>
+            <p className="text-[13px] font-bold text-gray-700 leading-tight">
+              {populationDensity ? `${populationDensity.toLocaleString()} /km²` : "—"}
+            </p>
           </div>
         </div>
       </Card>
 
-      {/* 4 individual metric cards */}
-      <div className="mx-2 mt-2 grid grid-cols-2 gap-2 flex-shrink-0">
-        <div className="bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
+      {/* Metrics:
+          Row 1: Locations (full width — spans 2 cols)
+          Row 2: Per 100k | Top-3 share
+          Population metric removed.
+      */}
+      <div className="mx-2 mt-2 flex flex-col gap-2 flex-shrink-0">
+        {/* Locations — full width */}
+        <div className="bg-white rounded-lg border border-[#e5e7eb] px-4 py-3">
           <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Locations</p>
           <p className="text-3xl font-black text-gray-900 leading-none">{totalPoints}</p>
         </div>
-        <div className="bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Population</p>
-          <p className="text-3xl font-black text-gray-900 leading-none">{population ? `${population}M` : "—"}</p>
-        </div>
-        <div className="bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Per 100k</p>
-          <p className="text-3xl font-black text-gray-900 leading-none">{concentrationIndex !== null ? concentrationIndex : "—"}</p>
-        </div>
-        <div className="bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
-          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Top-3 share</p>
-          <p className="text-3xl font-black text-gray-900 leading-none">{totalPoints > 0 ? `${top3Share}%` : "—"}</p>
+        {/* Per 100k + Top-3 share — side by side */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Per 100k</p>
+            <p className="text-3xl font-black text-gray-900 leading-none">
+              {concentrationIndex !== null ? concentrationIndex : "—"}
+            </p>
+          </div>
+          <div className="bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Top-3 share</p>
+            <p className="text-3xl font-black text-gray-900 leading-none">
+              {totalPoints > 0 ? `${top3Share}%` : "—"}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Dynamics row — period pills LEFT-anchored with fixed min-width, then big number */}
+      {/* Dynamics — period pills left-anchored, big number right */}
       <Card className="px-4 py-3 flex items-center gap-3 flex-shrink-0">
-        {/* Period pills — left, fixed width so they never shift */}
         <div className="flex items-center gap-0.5 flex-shrink-0">
           {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
             <button
@@ -120,11 +133,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             </button>
           ))}
         </div>
-
-        {/* Spacer */}
         <div className="flex-1" />
-
-        {/* Big dynamics number — right */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {totalDynamics >= 0
             ? <TrendingUp className="w-5 h-5 text-emerald-500" />
@@ -137,7 +146,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         </div>
       </Card>
 
-      {/* Brand list — order: dot + name | count | share% | delta */}
+      {/* Brand breakdown */}
       <Card className="flex-1 overflow-hidden flex flex-col">
         {regionStats && regionStats.totalPoints > 0 ? (
           <div className="px-4 py-3 space-y-2.5 overflow-y-auto h-full">
@@ -148,12 +157,9 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: b.color }} />
                     <span className="text-xs text-gray-700 flex-1 font-medium">{b.brand}</span>
-                    {/* count first */}
-                    <span className="text-xs font-bold text-gray-900 w-6 text-right">{b.count}</span>
-                    {/* share */}
-                    <span className="text-[10px] text-gray-400 w-8 text-right">{b.percent}%</span>
-                    {/* delta last */}
-                    <span className={`text-[10px] font-semibold w-9 text-right ${dynamics >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                    <span className="text-xs font-bold text-gray-900 w-6 text-right tabular-nums">{b.count}</span>
+                    <span className="text-[10px] text-gray-400 w-8 text-right tabular-nums">{b.percent}%</span>
+                    <span className={`text-[10px] font-semibold w-9 text-right tabular-nums ${dynamics >= 0 ? "text-emerald-500" : "text-red-400"}`}>
                       {dynamics >= 0 ? "+" : ""}{dynamics}
                     </span>
                   </div>
