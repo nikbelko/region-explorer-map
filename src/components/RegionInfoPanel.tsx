@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, TrendingUp, TrendingDown } from "lucide-react";
 import { RegionStats } from "@/data/regions";
 import { getRegionPopulation, getRegionArea } from "@/data/regionPopulation";
 
@@ -52,7 +52,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   return (
     <div className="flex flex-col h-full">
 
-      {/* ── Header: region name + close ── */}
+      {/* ── Header ── */}
       <div className="px-4 py-3 border-b border-gray-100 flex items-start justify-between flex-shrink-0">
         <div>
           <h3 className="text-base font-bold text-gray-900 leading-tight">{selectedRegion}</h3>
@@ -66,113 +66,108 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         </button>
       </div>
 
-      {/* ── Geo characteristics ── */}
-      <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Geography</p>
-        <div className="grid grid-cols-3 gap-2">
+      {/* ── 4 key metrics (2×2 grid) ── */}
+      <div className="px-4 pt-3 pb-2 border-b border-gray-100 flex-shrink-0">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <div>
-            <p className="text-[10px] text-gray-400 mb-0.5">Area</p>
-            <p className="text-sm font-bold text-gray-900">
-              {area ? `${area.toLocaleString()} km²` : "—"}
-            </p>
+            <p className="text-xs text-gray-400">Locations</p>
+            <p className="text-2xl font-black text-gray-900 leading-tight">{totalPoints}</p>
           </div>
           <div>
-            <p className="text-[10px] text-gray-400 mb-0.5">Population</p>
-            <p className="text-sm font-bold text-gray-900">
+            <p className="text-xs text-gray-400">Population</p>
+            <p className="text-2xl font-black text-gray-900 leading-tight">
               {population ? `${population}M` : "—"}
             </p>
           </div>
           <div>
-            <p className="text-[10px] text-gray-400 mb-0.5">Density</p>
-            <p className="text-sm font-bold text-gray-900">
-              {populationDensity ? `${populationDensity.toLocaleString()} /km²` : "—"}
+            <p className="text-xs text-gray-400">Per 100k</p>
+            <p className="text-2xl font-black text-gray-900 leading-tight">
+              {concentrationIndex !== null ? concentrationIndex : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400">Top-3 share</p>
+            <p className="text-2xl font-black text-gray-900 leading-tight">
+              {totalPoints > 0 ? `${top3Share}%` : "—"}
             </p>
           </div>
         </div>
       </div>
 
-      {/* ── Key metrics ── */}
-      <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2.5">Metrics</p>
-
-        {/* Locations (primary) */}
-        <div className="mb-3">
-          <p className="text-xs text-gray-400 mb-0.5">Locations</p>
-          <p className="text-3xl font-black text-gray-900 leading-none">{totalPoints}</p>
-        </div>
-
-        {/* Per 100k + Top-3 share */}
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <div>
-            <p className="text-xs text-gray-400 mb-0.5">Per 100k</p>
-            <p className="text-2xl font-black text-gray-900 leading-none">
-              {concentrationIndex !== null ? concentrationIndex : "—"}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-400 mb-0.5">Top-3 share</p>
-            <p className="text-2xl font-black text-gray-900 leading-none">
-              {totalPoints > 0 ? `${top3Share}%` : "—"}
-            </p>
-          </div>
-        </div>
-
-        {/* Dynamics with period selector */}
-        <div className="bg-gray-50 rounded-md px-3 py-2">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-[10px] text-gray-400">Dynamics</p>
-            <div className="flex items-center gap-0.5">
-              {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
-                    period === p
-                      ? "bg-blue-600 text-white"
-                      : "text-gray-400 hover:text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {PERIOD_LABELS[p]}
-                </button>
-              ))}
-            </div>
-          </div>
-          <p className={`text-lg font-bold leading-none ${totalDynamics >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-            {totalDynamics >= 0 ? "+" : ""}{totalDynamics}
-            <span className="text-xs text-gray-400 font-normal ml-1">locations</span>
+      {/* ── Area + density compact row ── */}
+      <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-6 flex-shrink-0">
+        <div>
+          <p className="text-[11px] text-gray-400">Area</p>
+          <p className="text-[13px] font-bold text-gray-700">
+            {area ? `${area.toLocaleString()} km²` : "—"}
           </p>
+        </div>
+        <div>
+          <p className="text-[11px] text-gray-400">Pop. density</p>
+          <p className="text-[13px] font-bold text-gray-700">
+            {populationDensity ? `${populationDensity.toLocaleString()} / km²` : "—"}
+          </p>
+        </div>
+      </div>
+
+      {/* ── Period selector + dynamics ── */}
+      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-3 flex-shrink-0">
+        {/* Period pills */}
+        <div className="flex items-center gap-0.5">
+          {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`text-xs px-3 py-1 rounded-md transition-colors font-medium ${
+                period === p
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              {PERIOD_LABELS[p]}
+            </button>
+          ))}
+        </div>
+
+        {/* Trending arrow + value */}
+        <div className="flex items-center gap-1 ml-auto">
+          {totalDynamics >= 0
+            ? <TrendingUp className="w-4 h-4 text-emerald-500" />
+            : <TrendingDown className="w-4 h-4 text-red-400" />
+          }
+          <span className={`text-sm font-bold ${totalDynamics >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+            {totalDynamics >= 0 ? "+" : ""}{totalDynamics}
+          </span>
+          <span className="text-[10px] text-gray-400">(exp.)</span>
         </div>
       </div>
 
       {/* ── Brand breakdown ── */}
       <div className="flex-1 overflow-y-auto">
         {regionStats && regionStats.totalPoints > 0 ? (
-          <div className="px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Chains</p>
-            <div className="space-y-2.5">
-              {regionStats.brands.map((b) => {
-                const dynamics = getBrandDynamics(selectedRegion, b.brand, period);
-                return (
-                  <div key={b.brand}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: b.color }} />
-                      <span className="text-xs text-gray-700 flex-1 font-medium">{b.brand}</span>
-                      <span className="text-xs font-bold text-gray-900">{b.count}</span>
-                      <span className={`text-[10px] font-medium w-8 text-right ${dynamics >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                        {dynamics >= 0 ? "+" : ""}{dynamics}
-                      </span>
-                      <span className="text-[10px] text-gray-400 w-7 text-right">{b.percent}%</span>
-                    </div>
-                    <div className="h-1 rounded-full bg-gray-100 overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{ width: `${b.percent}%`, backgroundColor: b.color }}
-                      />
-                    </div>
+          <div className="px-4 py-3 space-y-2.5">
+            {regionStats.brands.map((b) => {
+              const dynamics = getBrandDynamics(selectedRegion, b.brand, period);
+              return (
+                <div key={b.brand}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: b.color }} />
+                    <span className="text-xs text-gray-700 flex-1 font-medium">{b.brand}</span>
+                    <span className="text-xs font-bold text-gray-900">{b.count}</span>
+                    <span className={`text-[10px] font-medium w-8 text-right ${dynamics >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                      {dynamics >= 0 ? "+" : ""}{dynamics}
+                    </span>
+                    <span className="text-[10px] text-gray-400 w-7 text-right">{b.percent}%</span>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="h-1 rounded-full bg-gray-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${b.percent}%`, backgroundColor: b.color }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p className="text-xs text-gray-400 italic px-4 py-3">No locations match current filters</p>
