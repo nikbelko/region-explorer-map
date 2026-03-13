@@ -21,15 +21,14 @@ const BrandFilters = ({
 
   return (
     <div>
-      <div className="flex items-center justify-between px-4 py-2 border-b border-[#d1d5db]">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Chains</span>
+      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Brands</span>
         <div className="flex items-center gap-1.5">
           <button onClick={onSelectAll} className="text-xs text-blue-600 hover:text-blue-700 hover:underline transition-colors">All</button>
           <span className="text-gray-300 text-xs">·</span>
           <button onClick={onDeselectAll} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">None</button>
         </div>
       </div>
-
       <div>
         {filteredBrands.map((brand) => {
           const isSelected = selectedBrands.includes(brand);
@@ -38,12 +37,12 @@ const BrandFilters = ({
             <div
               key={brand}
               onClick={() => onToggleBrand(brand)}
-              className={`flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors border-b border-[#e8eaed] last:border-0 ${
-                isSelected ? "bg-blue-50/60 hover:bg-blue-50/80" : "hover:bg-white/60"
+              className={`flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors border-b border-gray-50 last:border-0 ${
+                isSelected ? "bg-blue-50/40 hover:bg-blue-50/60" : "hover:bg-gray-50"
               }`}
             >
               <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-              <span className={`text-sm flex-1 transition-colors ${isSelected ? "text-gray-900 font-medium" : "text-gray-500"}`}>
+              <span className={`text-sm flex-1 transition-colors ${isSelected ? "text-gray-900 font-medium" : "text-gray-400"}`}>
                 {brand}
               </span>
               {isSelected && (
