@@ -56,9 +56,16 @@ const NavBtn = ({
   </div>
 );
 
-/** Brand selector styled like the Country Explorer filter rows */
+/**
+ * BrandSelector — styled like Country Explorer filter dropdowns.
+ * Key fix: dropdown is rendered in a portal-like fixed div so it never gets
+ * clipped by overflow:hidden on parent cards/panels.
+ */
 const BrandSelector = ({
-  label, labelColor, value, onChange,
+  label,
+  labelColor,
+  value,
+  onChange,
 }: {
   label: string;
   labelColor: string;
@@ -66,57 +73,93 @@ const BrandSelector = ({
   onChange: (b: Brand) => void;
 }) => {
   const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
+
+  const openDropdown = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setDropPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    }
+    setOpen(true);
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = () => setOpen(false);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const brandColor = (BRAND_COLOR_MAP as Record<string, string>)[value] ?? labelColor;
+
   return (
-    <div className="px-3 py-2 border-b border-[#d1d5db] last:border-0">
-      {/* Section header */}
+    <div className="px-3 py-2.5 border-b border-[#d1d5db] last:border-0">
+      {/* Label row */}
       <div className="flex items-center gap-2 mb-1.5">
         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: labelColor }} />
         <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</span>
       </div>
-      {/* Dropdown trigger */}
-      <div className="relative" onClick={(e) => e.stopPropagation()}>
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-2 bg-white border border-[#d1d5db] rounded-md px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-gray-400 transition-colors w-full"
+
+      {/* Trigger button */}
+      <button
+        ref={btnRef}
+        onClick={(e) => { e.stopPropagation(); open ? setOpen(false) : openDropdown(); }}
+        className="flex items-center gap-2 bg-white border border-[#d1d5db] rounded-md px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-gray-400 transition-colors w-full"
+      >
+        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: brandColor }} />
+        <span className="flex-1 text-left">{value}</span>
+        <svg
+          className="w-3 h-3 text-gray-400 flex-shrink-0"
+          fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
         >
-          <span
-            className="w-2 h-2 rounded-full flex-shrink-0"
-            style={{ backgroundColor: (BRAND_COLOR_MAP as Record<string, string>)[value] ?? labelColor }}
-          />
-          <span className="flex-1 text-left">{value}</span>
-          <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        {open && (
-          <div
-            className="absolute top-full mt-1 left-0 right-0 bg-white border border-[#d1d5db] rounded-md shadow-md overflow-hidden max-h-52 overflow-y-auto"
-            style={{ zIndex: 50 }}
-          >
-            {BRANDS.map((b) => {
-              const color = (BRAND_COLOR_MAP as Record<string, string>)[b];
-              const isSelected = b === value;
-              return (
-                <div
-                  key={b}
-                  onClick={() => { onChange(b); setOpen(false); }}
-                  className={`flex items-center gap-3 px-3 py-2 text-xs border-b border-gray-50 last:border-0 cursor-pointer transition-colors ${
-                    isSelected ? "bg-blue-50/60 text-gray-900 font-medium" : "hover:bg-gray-50 text-gray-700"
-                  }`}
-                >
-                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                  <span className="flex-1">{b}</span>
-                  {isSelected && (
-                    <svg className="w-3 h-3 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {/* Portal dropdown — fixed position, always on top */}
+      {open && (
+        <div
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{
+            position: "fixed",
+            top: dropPos.top,
+            left: dropPos.left,
+            width: dropPos.width,
+            zIndex: 9999,
+            background: "#fff",
+            border: "1px solid #d1d5db",
+            borderRadius: "6px",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+            maxHeight: "220px",
+            overflowY: "auto",
+          }}
+        >
+          {BRANDS.map((b) => {
+            const color = (BRAND_COLOR_MAP as Record<string, string>)[b];
+            const isSelected = b === value;
+            return (
+              <div
+                key={b}
+                onClick={() => { onChange(b); setOpen(false); }}
+                className={`flex items-center gap-3 px-3 py-2 text-xs border-b border-gray-50 last:border-0 cursor-pointer transition-colors ${
+                  isSelected ? "bg-blue-50/80 text-gray-900 font-semibold" : "hover:bg-gray-50 text-gray-700"
+                }`}
+              >
+                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                <span className="flex-1">{b}</span>
+                {isSelected && (
+                  <svg className="w-3 h-3 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
@@ -148,7 +191,7 @@ const Compare = () => {
     markerLayerA.current = L.layerGroup().addTo(map);
     markerLayerB.current = L.layerGroup().addTo(map);
     fetch("/data/uk-regions.geojson")
-      .then((res) => res.json())
+      .then((r) => r.json())
       .then((data) => {
         setRegionsData(data);
         const geoLayer = L.geoJSON(data, {
@@ -173,11 +216,11 @@ const Compare = () => {
     restaurants.forEach((r) => {
       if (r.brand === brandA) {
         const m = L.circleMarker([r.lat, r.lng], { radius: 5, fillColor: BRAND_A_COLOR, color: "#ffffff", weight: 1, fillOpacity: 0.9 });
-        m.bindTooltip(`<strong style="color:${BRAND_A_COLOR}">${r.brand}</strong><br/>${r.name}`, { direction: "top", offset: [0, -6], className: "brand-tooltip" });
+        m.bindTooltip(`<strong style="color:${BRAND_A_COLOR}">${r.brand}</strong><br/>${r.name}`, { direction: "top", offset: [0, -6] });
         markerLayerA.current!.addLayer(m);
       } else if (r.brand === brandB) {
         const m = L.circleMarker([r.lat, r.lng], { radius: 5, fillColor: BRAND_B_COLOR, color: "#ffffff", weight: 1, fillOpacity: 0.9 });
-        m.bindTooltip(`<strong style="color:${BRAND_B_COLOR}">${r.brand}</strong><br/>${r.name}`, { direction: "top", offset: [0, -6], className: "brand-tooltip" });
+        m.bindTooltip(`<strong style="color:${BRAND_B_COLOR}">${r.brand}</strong><br/>${r.name}`, { direction: "top", offset: [0, -6] });
         markerLayerB.current!.addLayer(m);
       }
     });
@@ -185,16 +228,14 @@ const Compare = () => {
 
   const comparisons = useMemo<RegionComparison[]>(() => {
     if (!regionsData || restaurants.length === 0) return [];
-    const features = regionsData.features || [];
     const results: RegionComparison[] = [];
-    for (const feature of features) {
+    for (const feature of regionsData.features || []) {
       const name = feature?.properties?.ITL125NM || `Region ${feature?.id || "unknown"}`;
       let countA = 0, countB = 0;
       for (const r of restaurants) {
         if (r.brand !== brandA && r.brand !== brandB) continue;
         try {
-          const pt = turfPoint([r.lng, r.lat]);
-          if (booleanPointInPolygon(pt, feature)) {
+          if (booleanPointInPolygon(turfPoint([r.lng, r.lat]), feature)) {
             if (r.brand === brandA) countA++; else countB++;
           }
         } catch { /* skip */ }
@@ -222,9 +263,9 @@ const Compare = () => {
   const totalB = comparisons.reduce((s, c) => s + c.countB, 0);
   const overallLeader = totalA > totalB ? "A" : totalB > totalA ? "B" : "tie";
 
-  const getDelta = useCallback((region: string) => {
-    return getBrandDynamics(region, brandA, period) - getBrandDynamics(region, brandB, period);
-  }, [brandA, brandB, period]);
+  const getDelta = useCallback((region: string) =>
+    getBrandDynamics(region, brandA, period) - getBrandDynamics(region, brandB, period),
+  [brandA, brandB, period]);
 
   const totalDelta = comparisons.reduce((s, c) => s + getDelta(c.region), 0);
 
@@ -233,11 +274,11 @@ const Compare = () => {
     const result: string[] = [];
     const aWins = comparisons.filter((c) => c.leader === "A").length;
     result.push(`${brandA} leads in ${aWins} of ${comparisons.length} regions`);
-    const bWinRegions = comparisons.filter((c) => c.leader === "B").map((c) => c.region);
-    if (bWinRegions.length > 0) {
-      const shown = bWinRegions.slice(0, 2).join(", ");
-      const suffix = bWinRegions.length > 2 ? ` +${bWinRegions.length - 2} more` : "";
-      result.push(`${brandB} leads in: ${shown}${suffix}`);
+    const bWins = comparisons.filter((c) => c.leader === "B");
+    if (bWins.length > 0) {
+      const shown = bWins.slice(0, 2).map((c) => c.region).join(", ");
+      const more = bWins.length > 2 ? ` +${bWins.length - 2} more` : "";
+      result.push(`${brandB} leads in: ${shown}${more}`);
     } else {
       result.push(`${brandB} leads in no regions`);
     }
@@ -256,9 +297,9 @@ const Compare = () => {
   const isLoading = dataLoading || mapLoading;
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-white" onClick={() => {}}>
+    <div className="flex h-screen w-screen overflow-hidden bg-white">
 
-      {/* ── Navbar ── */}
+      {/* Navbar */}
       <nav className="w-12 flex-shrink-0 bg-[#1e2128] flex flex-col items-center py-3 gap-1" style={{ zIndex: 9998, position: "relative" }}>
         <div className="w-8 h-8 mb-4 flex items-center justify-center">
           <svg viewBox="0 0 107.57 137.26" className="w-5 h-5" fill="#9a9d9e">
@@ -274,26 +315,20 @@ const Compare = () => {
         <NavBtn icon={<Settings className="w-4 h-4" />} label="Settings" />
       </nav>
 
-      {/* ── Map ── */}
+      {/* Map */}
       <main className="flex-1 relative overflow-hidden">
         <div ref={mapRef} className="w-full h-full" />
 
-        {/* Insights — centred, 1 column, wide */}
+        {/* Insights — centred, 1 column */}
         {insights.length > 0 && (
           <div
             className="absolute bottom-5 z-[1000] bg-white border border-gray-200 rounded-lg shadow-sm p-3"
-            style={{
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: "520px",
-              maxWidth: "calc(100% - 32px)",
-            }}
+            style={{ left: "50%", transform: "translateX(-50%)", width: "520px", maxWidth: "calc(100% - 32px)" }}
           >
             <div className="flex items-center gap-2 mb-2">
               <Lightbulb className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
               <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Insights</h4>
             </div>
-            {/* 1 column like Country Explorer */}
             <div className="space-y-1">
               {insights.map((text, i) => (
                 <p key={i} className="text-xs text-gray-600">• {text}</p>
@@ -312,9 +347,11 @@ const Compare = () => {
         )}
       </main>
 
-      {/* ── Right panel — 460px, gray bg ── */}
-      <aside className="flex-shrink-0 border-l border-[#d1d5db] bg-[#f0f2f5] flex flex-col" style={{ width: "460px" }}>
-
+      {/* Right panel — 460px, overflow visible so dropdowns escape */}
+      <aside
+        className="flex-shrink-0 border-l border-[#d1d5db] bg-[#f0f2f5] flex flex-col"
+        style={{ width: "460px", overflow: "visible", position: "relative", zIndex: 20 }}
+      >
         {/* Header */}
         <div className="px-4 py-3 border-b border-[#d1d5db] flex-shrink-0">
           <button
@@ -328,26 +365,17 @@ const Compare = () => {
           <p className="text-xs text-gray-400 mt-0.5">Great Britain · Head-to-head</p>
         </div>
 
-        {/* Brand selectors — white card, Explorer filter style */}
-        <div className="mx-2 mt-2 bg-white rounded-lg border border-[#e5e7eb] overflow-hidden flex-shrink-0">
-          <BrandSelector
-            label="Brand A"
-            labelColor={BRAND_A_COLOR}
-            value={brandA}
-            onChange={setBrandA}
-          />
-          <BrandSelector
-            label="Brand B"
-            labelColor={BRAND_B_COLOR}
-            value={brandB}
-            onChange={setBrandB}
-          />
+        {/* Brand selectors — white card, overflow visible */}
+        <div
+          className="mx-2 mt-2 bg-white rounded-lg border border-[#e5e7eb] flex-shrink-0"
+          style={{ overflow: "visible" }}
+        >
+          <BrandSelector label="Brand A" labelColor={BRAND_A_COLOR} value={brandA} onChange={setBrandA} />
+          <BrandSelector label="Brand B" labelColor={BRAND_B_COLOR} value={brandB} onChange={setBrandB} />
         </div>
 
-        {/* Table — white card */}
+        {/* Table card — scrollable */}
         <div className="mx-2 mt-2 mb-2 bg-white rounded-lg border border-[#e5e7eb] overflow-hidden flex-1 flex flex-col min-h-0">
-
-          {/* Period row */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 flex-shrink-0">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Regions</span>
             <div className="flex items-center gap-0.5">
