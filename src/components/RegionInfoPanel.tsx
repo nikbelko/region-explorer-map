@@ -35,16 +35,13 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
     ? Math.round((population * 1_000_000) / area)
     : null;
   const totalPoints = regionStats?.totalPoints ?? 0;
-
   const concentrationIndex = population && population > 0
     ? Math.round((totalPoints / (population * 1_000_000)) * 100_000 * 10) / 10
     : null;
-
   const top3Brands = regionStats?.brands.slice(0, 3) ?? [];
   const top3Share = totalPoints > 0
     ? Math.round(top3Brands.reduce((s, b) => s + b.count, 0) / totalPoints * 100)
     : 0;
-
   const totalDynamics = regionStats?.brands.reduce((sum, b) => {
     return sum + getBrandDynamics(selectedRegion, b.brand, period);
   }, 0) ?? 0;
@@ -52,11 +49,12 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   return (
     <div className="flex flex-col h-full">
 
-      {/* 1. Region name + close */}
-      <div className="px-4 py-3 border-b border-gray-100 flex items-start justify-between flex-shrink-0">
+      {/* ── Header: white card ── */}
+      <div className="mx-2 mt-2 bg-white rounded-lg border border-[#e5e7eb] px-4 py-3 flex items-start justify-between flex-shrink-0">
         <div>
           <h3 className="text-base font-bold text-gray-900 leading-tight">{selectedRegion}</h3>
-          <p className="text-xs text-gray-400 mt-0.5">England · Region detail</p>
+          {/* #7 — "Great Britain" not "England" */}
+          <p className="text-xs text-gray-400 mt-0.5">Great Britain · Region detail</p>
         </div>
         <button
           onClick={onClearRegion}
@@ -66,9 +64,9 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         </button>
       </div>
 
-      {/* 2. Geo stats — Area / Population / Density in Getplace style */}
-      <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+      {/* ── Geo stats — white card, 3 columns ── */}
+      <div className="mx-2 mt-2 bg-white rounded-lg border border-[#e5e7eb] px-4 py-3 flex-shrink-0">
+        <div className="grid grid-cols-3 gap-3">
           <div>
             <p className="text-[11px] text-gray-400 mb-0.5">Area</p>
             <p className="text-[13px] font-bold text-gray-700 leading-tight">
@@ -82,16 +80,16 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             </p>
           </div>
           <div>
-            <p className="text-[11px] text-gray-400 mb-0.5">Pop. density</p>
+            <p className="text-[11px] text-gray-400 mb-0.5">Density</p>
             <p className="text-[13px] font-bold text-gray-700 leading-tight">
-              {populationDensity ? `${populationDensity.toLocaleString()} / km²` : "—"}
+              {populationDensity ? `${populationDensity.toLocaleString()} /km²` : "—"}
             </p>
           </div>
         </div>
       </div>
 
-      {/* 3. Key metrics (2×2 large numbers) */}
-      <div className="px-4 pt-3 pb-2 border-b border-gray-100 flex-shrink-0">
+      {/* ── Key metrics — white card ── */}
+      <div className="mx-2 mt-2 bg-white rounded-lg border border-[#e5e7eb] px-4 py-3 flex-shrink-0">
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <div>
             <p className="text-xs text-gray-400">Locations</p>
@@ -118,9 +116,9 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         </div>
       </div>
 
-      {/* 4. Dynamics FIRST — big arrow + value, then small period pills */}
-      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-shrink-0">
-        {/* Arrow + value — primary */}
+      {/* ── Dynamics row — white card ── */}
+      <div className="mx-2 mt-2 bg-white rounded-lg border border-[#e5e7eb] px-4 py-2.5 flex items-center gap-2 flex-shrink-0">
+        {/* Arrow + value first */}
         <div className="flex items-center gap-1">
           {totalDynamics >= 0
             ? <TrendingUp className="w-4 h-4 text-emerald-500 flex-shrink-0" />
@@ -131,17 +129,14 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
           </span>
           <span className="text-[10px] text-gray-400 ml-0.5">(exp.)</span>
         </div>
-
-        {/* Period pills — smaller, pushed right */}
+        {/* Period pills right */}
         <div className="flex items-center gap-0.5 ml-auto">
           {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={`text-[10px] px-2 py-0.5 rounded transition-colors font-medium ${
-                period === p
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-400 hover:text-gray-600"
+                period === p ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-600"
               }`}
             >
               {PERIOD_LABELS[p]}
@@ -150,10 +145,10 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         </div>
       </div>
 
-      {/* 5. Brand breakdown */}
-      <div className="flex-1 overflow-y-auto">
+      {/* ── Brand breakdown — white card ── */}
+      <div className="mx-2 mt-2 mb-2 bg-white rounded-lg border border-[#e5e7eb] flex-1 overflow-hidden">
         {regionStats && regionStats.totalPoints > 0 ? (
-          <div className="px-4 py-3 space-y-2.5">
+          <div className="px-4 py-3 space-y-2.5 overflow-y-auto h-full">
             {regionStats.brands.map((b) => {
               const dynamics = getBrandDynamics(selectedRegion, b.brand, period);
               return (
