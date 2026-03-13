@@ -11,6 +11,8 @@ interface RegionMapProps {
   selectedBrands: Brand[];
   onRegionStats: (stats: RegionStats | null) => void;
   flyToRegion?: string | null;
+  /** Width in px of the right region panel (so flyTo can offset padding) */
+  regionPanelWidth?: number;
 }
 
 const REGION_COLORS = [
@@ -22,7 +24,10 @@ const REGION_COLORS = [
 
 interface RestaurantPoint { brand: Brand; lat: number; lng: number; name: string; }
 
-const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStats, flyToRegion }: RegionMapProps) => {
+const RegionMap = ({
+  onRegionClick, selectedRegion, selectedBrands, onRegionStats,
+  flyToRegion, regionPanelWidth = 0,
+}: RegionMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const layersRef = useRef<L.GeoJSON | null>(null);
@@ -67,6 +72,7 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
     return { regionName, totalPoints: total, brands: brandStats };
   }, []);
 
+  // Init map
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
     const map = L.map(mapRef.current, { center: [52.5, -1.5], zoom: 6, zoomControl: true, attributionControl: true });
@@ -76,15 +82,15 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
     }).addTo(map);
     mapInstance.current = map;
 
+    // Light hover tooltip
+    const tooltipDiv = document.createElement("div");
+    tooltipDiv.style.cssText =
+      "display:none;position:absolute;z-index:900;pointer-events:none;" +
+      "background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;" +
+      "font-size:11px;color:#1f2937;box-shadow:0 4px 12px rgba(0,0,0,0.10);max-width:220px;";
+
     fetch("/data/uk-regions.geojson").then((res) => res.json()).then((data) => {
       regionsDataRef.current = data;
-
-      /* Light tooltip div */
-      const tooltipDiv = document.createElement("div");
-      tooltipDiv.style.cssText =
-        "display:none;position:absolute;z-index:900;pointer-events:none;" +
-        "background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;" +
-        "font-size:11px;color:#1f2937;box-shadow:0 4px 12px rgba(0,0,0,0.10);max-width:220px;";
       map.getContainer().appendChild(tooltipDiv);
       (map as any)._regionTooltipDiv = tooltipDiv;
 
@@ -155,10 +161,15 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
       }).catch(() => { loaded++; setLoadingBrands(BRAND_CONFIGS.length - loaded); });
     });
 
-    return () => { map.remove(); mapInstance.current = null; markerLayersRef.current = {}; restaurantsRef.current = []; };
+    return () => {
+      map.remove();
+      mapInstance.current = null;
+      markerLayersRef.current = {};
+      restaurantsRef.current = [];
+    };
   }, []);
 
-  /* Style selected region */
+  // Style selected region + compute stats
   useEffect(() => {
     if (!layersRef.current) return;
     layersRef.current.eachLayer((layer: any) => {
@@ -170,7 +181,7 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
     else onRegionStats(null);
   }, [selectedRegion, selectedBrands, computeRegionStats, onRegionStats]);
 
-  /* Fly to region when flyToRegion prop changes */
+  // Fly to region — offset right padding for the region info panel
   useEffect(() => {
     if (!flyToRegion || !layersRef.current || !mapInstance.current) return;
     layersRef.current.eachLayer((layer: any) => {
@@ -178,14 +189,20 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
         try {
           const bounds = layer.getBounds();
           if (bounds.isValid()) {
-            mapInstance.current!.flyToBounds(bounds, { padding: [40, 40], maxZoom: 9, duration: 0.8 });
+            // paddingTopLeft = [leftPad, topPad], paddingBottomRight = [rightPad+panel, bottomPad]
+            mapInstance.current!.flyToBounds(bounds, {
+              paddingTopLeft: [40, 40],
+              paddingBottomRight: [40 + regionPanelWidth, 40],
+              maxZoom: 9,
+              duration: 0.8,
+            });
           }
         } catch { /**/ }
       }
     });
-  }, [flyToRegion]);
+  }, [flyToRegion, regionPanelWidth]);
 
-  /* Toggle brand visibility */
+  // Toggle brands
   useEffect(() => {
     const map = mapInstance.current;
     if (!map) return;
@@ -201,6 +218,7 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
   return (
     <div className="relative w-full h-full">
       <div ref={mapRef} className="w-full h-full" />
+      {/* Legend */}
       <div className="absolute bottom-6 right-6 z-[1000] bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg p-3">
         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Brands</h4>
         <div className="space-y-1.5">
