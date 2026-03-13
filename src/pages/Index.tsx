@@ -361,13 +361,12 @@ const Index = () => {
                     onDeselectAll={handleDeselectAllBrands}
                     searchQuery={brandSearch}
                   />
-                  {/* Передаем проп для отображения chains вместо brands */}
+                  {/* Убираем showChains, возвращаем стандартное отображение с "brands" */}
                   <CategoryFilters
                     selectedCategories={selectedCategories}
                     onToggleCategory={handleToggleCategory}
                     onSelectAll={handleSelectAllCategories}
                     onDeselectAll={handleDeselectAllCategories}
-                    showChains={true}
                   />
                 </div>
               </div>
