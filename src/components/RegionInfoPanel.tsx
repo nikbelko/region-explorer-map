@@ -153,7 +153,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
       originalRegion: saturationIndex,
       originalCountry: countryAvg.saturation,
       percentDiff: percentDiffSaturation,
-      tooltipLabel: 'Saturation Index (inverted)'
+      tooltipLabel: 'Saturation Index'
     },
     {
       subject: 'Top-3 Share',
@@ -445,14 +445,16 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
                   formatter={(value: number, name: string, props: any) => {
                     const payload = props.payload;
                     
+                    // Для Country Avg показываем просто значение
                     if (name === "Country Avg") {
-                      return [`${payload.tooltipLabel}: ${payload.originalCountry}`, name];
+                      return [`Country Avg: ${payload.originalCountry}`, payload.tooltipLabel];
                     }
                     
-                    // Для региона показываем с процентной разницей
+                    // Для региона показываем значение с процентной разницей
                     const regionValue = payload.originalRegion;
                     const percentText = payload.percentDiff ? ` (${payload.percentDiff} vs Avg)` : '';
                     
+                    // Форматируем значение в зависимости от типа метрики
                     let formattedValue = regionValue;
                     if (payload.subject === 'Top-3 Share') {
                       formattedValue = `${regionValue}%`;
@@ -460,7 +462,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
                       formattedValue = regionValue?.toFixed(1);
                     }
                     
-                    return [`${payload.tooltipLabel}: ${formattedValue}${percentText}`, name];
+                    return [`${selectedRegion}: ${formattedValue}${percentText}`, payload.tooltipLabel];
                   }}
                 />
               </RadarChart>
