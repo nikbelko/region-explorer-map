@@ -86,6 +86,12 @@ const Index = () => {
     setRegionStats(stats);
   }, []);
 
+  /* Selecting region from dropdown also opens the region panel */
+  const handleSelectRegion = (r: string | null) => {
+    setSelectedRegion(r);
+    setRegionOpen(false);
+  };
+
   return (
     <div
       className="flex h-screen w-screen overflow-hidden bg-white"
@@ -111,18 +117,23 @@ const Index = () => {
         <NavBtn icon={<LogOut className="w-4 h-4" />} label="Log out" />
       </nav>
 
-      {/* ── Layout: sidebar + map wrapper (relative, so toggle button can float) ── */}
+      {/* ── Main layout wrapper (sidebar + map) ── */}
       <div className="flex-1 flex relative overflow-hidden">
 
         {/* ── Sidebar ── */}
         <aside
-          className="flex-shrink-0 border-r border-[#d1d5db] bg-[#f0f2f5] flex flex-col transition-all duration-200 overflow-hidden"
-          style={{ width: filterPanelOpen ? "260px" : "0px", zIndex: 10 }}
+          className="flex-shrink-0 bg-[#f0f2f5] flex flex-col transition-all duration-200 overflow-hidden"
+          style={{ width: filterPanelOpen ? "264px" : "0px", zIndex: 10, borderRight: filterPanelOpen ? "1px solid #d1d5db" : "none" }}
         >
-          <div className="w-[260px] flex flex-col h-full">
+          <div className="w-[264px] flex flex-col h-full">
+
+            {/* ── Competitive Intelligence header ── */}
+            <div className="px-4 pt-3 pb-2 border-b border-[#d1d5db]">
+              <p className="text-[11px] font-semibold text-gray-500 tracking-wide">Competitive Intelligence</p>
+            </div>
 
             {/* Country selector */}
-            <div className="px-3 pt-3 pb-2 border-b border-[#d1d5db]">
+            <div className="px-3 pt-2 pb-2 border-b border-[#d1d5db]">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-1">Country</p>
               <div className="relative" onClick={(e) => e.stopPropagation()}>
                 <button
@@ -168,7 +179,7 @@ const Index = () => {
                 >
                   <span className="flex-1 text-left">{selectedRegion ?? "All regions"}</span>
                   {selectedRegion && (
-                    <button onClick={(e) => { e.stopPropagation(); setSelectedRegion(null); }} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={(e) => { e.stopPropagation(); handleSelectRegion(null); }} className="text-gray-400 hover:text-gray-600">
                       <X className="w-3 h-3" />
                     </button>
                   )}
@@ -176,9 +187,12 @@ const Index = () => {
                 </button>
                 {regionOpen && (
                   <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-[#d1d5db] rounded-md shadow-md overflow-hidden max-h-52 overflow-y-auto" style={{ zIndex: 50 }}>
+                    {/* All regions — no italic */}
                     <div
-                      className="flex items-center gap-2 px-3 py-2 text-xs border-b border-gray-50 cursor-pointer hover:bg-blue-50 text-gray-500 italic"
-                      onClick={() => { setSelectedRegion(null); setRegionOpen(false); }}
+                      className={`flex items-center gap-2 px-3 py-2 text-xs border-b border-gray-50 cursor-pointer hover:bg-blue-50 ${
+                        !selectedRegion ? "text-blue-700 font-medium bg-blue-50/40" : "text-gray-500"
+                      }`}
+                      onClick={() => handleSelectRegion(null)}
                     >
                       All regions
                       {!selectedRegion && <svg className="w-3 h-3 text-blue-600 ml-auto" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
@@ -189,7 +203,7 @@ const Index = () => {
                         className={`flex items-center px-3 py-2 text-xs border-b border-gray-50 last:border-0 cursor-pointer hover:bg-blue-50 ${
                           selectedRegion === r ? "text-blue-700 font-medium bg-blue-50/60" : "text-gray-700"
                         }`}
-                        onClick={() => { setSelectedRegion(r); setRegionOpen(false); }}
+                        onClick={() => handleSelectRegion(r)}
                       >
                         {r}
                         {selectedRegion === r && <svg className="w-3 h-3 text-blue-600 ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
@@ -248,19 +262,18 @@ const Index = () => {
           </div>
         </aside>
 
-        {/* ── Collapse toggle — floats over the map edge ── */}
+        {/* ── Collapse toggle — floats over map, same colour as sidebar ── */}
         <button
           onClick={() => setFilterPanelOpen((v) => !v)}
           title={filterPanelOpen ? "Hide filters" : "Show filters"}
           style={{
             position: "absolute",
-            left: filterPanelOpen ? "252px" : "0px",
+            left: filterPanelOpen ? "256px" : "0px",
             top: "50%",
             transform: "translateY(-50%)",
-            width: "20px",
+            width: "18px",
             height: "44px",
-            background: "rgba(209, 213, 219, 0.85)",
-            backdropFilter: "blur(4px)",
+            background: "#d8dbe0",
             borderRadius: "0 8px 8px 0",
             border: "none",
             cursor: "pointer",
@@ -269,23 +282,25 @@ const Index = () => {
             alignItems: "center",
             justifyContent: "center",
             color: "#6b7280",
-            transition: "left 0.2s ease",
+            transition: "left 0.2s ease, background 0.15s ease",
+            boxShadow: "2px 0 6px rgba(0,0,0,0.08)",
           }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(176, 183, 195, 0.95)"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(209, 213, 219, 0.85)"; }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#c5c9d0"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#d8dbe0"; }}
         >
           {filterPanelOpen
-            ? <ChevronLeft style={{ width: 12, height: 12 }} />
-            : <ChevronRight style={{ width: 12, height: 12 }} />
+            ? <ChevronLeft style={{ width: 11, height: 11 }} />
+            : <ChevronRight style={{ width: 11, height: 11 }} />
           }
         </button>
 
-        {/* ── Map + insights ── */}
+        {/* ── Map area ── */}
         <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Top bar — "Great Britain" not "England" */}
           <div className="h-10 bg-white border-b border-gray-200 flex items-center px-4 gap-2 z-10 flex-shrink-0">
             <span className="text-sm font-semibold text-gray-900">Country Explorer</span>
             <span className="text-gray-300">·</span>
-            <span className="text-xs text-gray-500">England</span>
+            <span className="text-xs text-gray-500">Great Britain</span>
             <span className="text-gray-300">·</span>
             <span className="text-xs text-gray-500">{selectedBrands.length} chains</span>
             {selectedRegion && (
@@ -293,13 +308,14 @@ const Index = () => {
                 <span className="text-gray-300">·</span>
                 <span className="flex items-center gap-1 text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium border border-blue-100">
                   {selectedRegion}
-                  <button onClick={() => setSelectedRegion(null)} className="hover:text-blue-800 ml-0.5">
+                  <button onClick={() => handleSelectRegion(null)} className="hover:text-blue-800 ml-0.5">
                     <X className="w-2.5 h-2.5" />
                   </button>
                 </span>
               </>
             )}
           </div>
+
           <div className="flex-1 relative">
             <RegionMap
               onRegionClick={setSelectedRegion}
@@ -316,13 +332,16 @@ const Index = () => {
           </div>
         </div>
 
-        {/* ── Right region detail ── */}
+        {/* ── Right region detail panel — wider, gray bg, white cards ── */}
         {selectedRegion && (
-          <aside className="w-[272px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col overflow-y-auto" style={{ zIndex: 10 }}>
+          <aside
+            className="flex-shrink-0 border-l border-[#d1d5db] bg-[#f0f2f5] flex flex-col overflow-y-auto"
+            style={{ width: "300px", zIndex: 10 }}
+          >
             <RegionInfoPanel
               selectedRegion={selectedRegion}
               regionStats={regionStats}
-              onClearRegion={() => setSelectedRegion(null)}
+              onClearRegion={() => handleSelectRegion(null)}
             />
           </aside>
         )}
