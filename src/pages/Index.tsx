@@ -69,18 +69,28 @@ const NavBtn = ({
   </div>
 );
 
-const Sep = () => <span className="text-gray-300 text-xs select-none mx-1">·</span>;
+const Sep = () => <span className="text-gray-300 text-xs select-none mx-1.5">·</span>;
 
-// Обычный информационный чип
+// Серый информационный чип (без крестика)
 const InfoChip = ({ label }: { label: string }) => (
   <span className="text-[11px] text-gray-400 font-light select-none whitespace-nowrap tracking-normal">{label}</span>
 );
 
-// Жирный синий чип для выбранного региона
+// Синий чип для выбранного региона
 const RegionChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
-  <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-semibold border border-blue-100 select-none whitespace-nowrap">
+  <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium border border-blue-100 select-none whitespace-nowrap">
     {label}
     <button onClick={onRemove} className="hover:text-blue-800 ml-0.5 flex-shrink-0">
+      <X className="w-2.5 h-2.5" />
+    </button>
+  </span>
+);
+
+// Чип для Great Britain (как регион с крестиком)
+const CountryChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
+  <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full font-medium border border-gray-200 select-none whitespace-nowrap">
+    {label}
+    <button onClick={onRemove} className="hover:text-gray-900 ml-0.5 flex-shrink-0">
       <X className="w-2.5 h-2.5" />
     </button>
   </span>
@@ -219,16 +229,16 @@ const Index = () => {
       {/* ── Content column ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* TOP BAR — исправленное выравнивание */}
+        {/* TOP BAR — все элементы выровнены по центру */}
         <div
           className="bg-white border-b border-gray-200 flex items-center px-4 gap-1 flex-shrink-0"
           style={{ zIndex: 150, position: "relative", overflow: "visible", height: 48 }}
         >
-          <span className="text-xl font-bold text-blue-600 leading-none tracking-tight">Country Explorer</span>
+          <span className="text-base font-bold text-blue-600 leading-none flex items-center">Country Explorer</span>
           <Sep />
-          <InfoChip label="Competitive Intelligence" />
+          <span className="text-[11px] text-gray-400 font-light flex items-center">Competitive Intelligence</span>
           <Sep />
-          <InfoChip label="Great Britain" />
+          <CountryChip label="Great Britain" onRemove={() => console.log("Remove country")} />
           <Sep />
           <InfoChip label={`${selectedBrands.length} brand${selectedBrands.length !== 1 ? 's' : ''}`} />
           <Sep />
@@ -361,7 +371,6 @@ const Index = () => {
                     onDeselectAll={handleDeselectAllBrands}
                     searchQuery={brandSearch}
                   />
-                  {/* Убираем showChains, возвращаем стандартное отображение с "brands" */}
                   <CategoryFilters
                     selectedCategories={selectedCategories}
                     onToggleCategory={handleToggleCategory}
@@ -373,7 +382,7 @@ const Index = () => {
             </div>
           </aside>
 
-          {/* Кнопка сворачивания панели — теперь точно видима! */}
+          {/* Кнопка сворачивания панели */}
           <SidebarToggle isOpen={filterPanelOpen} onClick={() => setFilterPanelOpen(!filterPanelOpen)} />
 
           {/* Map */}
