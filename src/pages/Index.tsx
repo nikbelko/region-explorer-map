@@ -86,11 +86,12 @@ const Index = () => {
     setRegionStats(stats);
   }, []);
 
-  /* Selecting region from dropdown also opens the region panel */
   const handleSelectRegion = (r: string | null) => {
     setSelectedRegion(r);
     setRegionOpen(false);
   };
+
+  const SIDEBAR_W = 264;
 
   return (
     <div
@@ -117,22 +118,30 @@ const Index = () => {
         <NavBtn icon={<LogOut className="w-4 h-4" />} label="Log out" />
       </nav>
 
-      {/* ── Main layout wrapper (sidebar + map) ── */}
+      {/* ── Layout wrapper ── */}
       <div className="flex-1 flex relative overflow-hidden">
 
-        {/* ── Sidebar ── */}
+        {/* ── Sidebar — overflow visible so toggle can poke out ── */}
         <aside
-          className="flex-shrink-0 bg-[#f0f2f5] flex flex-col transition-all duration-200 overflow-hidden"
-          style={{ width: filterPanelOpen ? "264px" : "0px", zIndex: 10, borderRight: filterPanelOpen ? "1px solid #d1d5db" : "none" }}
+          style={{
+            width: filterPanelOpen ? `${SIDEBAR_W}px` : "0px",
+            flexShrink: 0,
+            background: "#f0f2f5",
+            borderRight: filterPanelOpen ? "1px solid #d1d5db" : "none",
+            zIndex: 10,
+            transition: "width 0.2s ease",
+            overflow: "hidden",
+            position: "relative",   /* so the toggle inside it is relative to sidebar edge */
+          }}
         >
-          <div className="w-[264px] flex flex-col h-full">
+          <div style={{ width: `${SIDEBAR_W}px` }} className="flex flex-col h-full">
 
-            {/* ── Competitive Intelligence header ── */}
+            {/* Competitive Intelligence label */}
             <div className="px-4 pt-3 pb-2 border-b border-[#d1d5db]">
               <p className="text-[11px] font-semibold text-gray-500 tracking-wide">Competitive Intelligence</p>
             </div>
 
-            {/* Country selector */}
+            {/* Country */}
             <div className="px-3 pt-2 pb-2 border-b border-[#d1d5db]">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-1">Country</p>
               <div className="relative" onClick={(e) => e.stopPropagation()}>
@@ -142,26 +151,20 @@ const Index = () => {
                 >
                   <Globe className="w-3 h-3 text-gray-400 flex-shrink-0" />
                   <span className="flex-1 text-left">Great Britain</span>
-                  <ChevronRight className="w-3 h-3 text-gray-400 transition-transform" style={{ transform: countryOpen ? "rotate(-90deg)" : "rotate(90deg)" }} />
+                  <ChevronRight className="w-3 h-3 text-gray-400" style={{ transform: countryOpen ? "rotate(-90deg)" : "rotate(90deg)", transition: "transform 0.15s" }} />
                 </button>
                 {countryOpen && (
                   <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-[#d1d5db] rounded-md shadow-md overflow-hidden" style={{ zIndex: 50 }}>
                     {COUNTRIES.map((c) => (
                       <div
                         key={c.code}
-                        className={`flex items-center gap-2 px-3 py-2 text-xs border-b border-gray-50 last:border-0 ${
-                          c.active ? "cursor-pointer hover:bg-blue-50 text-gray-800 font-medium" : "cursor-not-allowed text-gray-300"
-                        }`}
+                        className={`flex items-center gap-2 px-3 py-2 text-xs border-b border-gray-50 last:border-0 ${c.active ? "cursor-pointer hover:bg-blue-50 text-gray-800 font-medium" : "cursor-not-allowed text-gray-300"}`}
                         onClick={() => c.active && setCountryOpen(false)}
                       >
                         <Globe className="w-3 h-3 flex-shrink-0" />
                         {c.name}
                         {!c.active && <span className="ml-auto text-[9px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">Soon</span>}
-                        {c.active && (
-                          <svg className="w-3 h-3 text-blue-600 ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
+                        {c.active && <svg className="w-3 h-3 text-blue-600 ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                       </div>
                     ))}
                   </div>
@@ -169,7 +172,7 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Region selector */}
+            {/* Region */}
             <div className="px-3 py-2 border-b border-[#d1d5db]">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-1">Region</p>
               <div className="relative" onClick={(e) => e.stopPropagation()}>
@@ -183,15 +186,12 @@ const Index = () => {
                       <X className="w-3 h-3" />
                     </button>
                   )}
-                  <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0 transition-transform" style={{ transform: regionOpen ? "rotate(-90deg)" : "rotate(90deg)" }} />
+                  <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" style={{ transform: regionOpen ? "rotate(-90deg)" : "rotate(90deg)", transition: "transform 0.15s" }} />
                 </button>
                 {regionOpen && (
                   <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-[#d1d5db] rounded-md shadow-md overflow-hidden max-h-52 overflow-y-auto" style={{ zIndex: 50 }}>
-                    {/* All regions — no italic */}
                     <div
-                      className={`flex items-center gap-2 px-3 py-2 text-xs border-b border-gray-50 cursor-pointer hover:bg-blue-50 ${
-                        !selectedRegion ? "text-blue-700 font-medium bg-blue-50/40" : "text-gray-500"
-                      }`}
+                      className={`flex items-center gap-2 px-3 py-2 text-xs border-b border-gray-50 cursor-pointer hover:bg-blue-50 ${!selectedRegion ? "text-blue-700 font-medium bg-blue-50/40" : "text-gray-600"}`}
                       onClick={() => handleSelectRegion(null)}
                     >
                       All regions
@@ -200,9 +200,7 @@ const Index = () => {
                     {ENGLAND_REGIONS.map((r) => (
                       <div
                         key={r}
-                        className={`flex items-center px-3 py-2 text-xs border-b border-gray-50 last:border-0 cursor-pointer hover:bg-blue-50 ${
-                          selectedRegion === r ? "text-blue-700 font-medium bg-blue-50/60" : "text-gray-700"
-                        }`}
+                        className={`flex items-center px-3 py-2 text-xs border-b border-gray-50 last:border-0 cursor-pointer hover:bg-blue-50 ${selectedRegion === r ? "text-blue-700 font-medium bg-blue-50/60" : "text-gray-700"}`}
                         onClick={() => handleSelectRegion(r)}
                       >
                         {r}
@@ -225,15 +223,11 @@ const Index = () => {
                   placeholder="Search chain..."
                   className="text-xs bg-transparent border-none outline-none w-full text-gray-700 placeholder:text-gray-400"
                 />
-                {brandSearch && (
-                  <button onClick={() => setBrandSearch("")}>
-                    <X className="w-3 h-3 text-gray-400 hover:text-gray-600" />
-                  </button>
-                )}
+                {brandSearch && <button onClick={() => setBrandSearch("")}><X className="w-3 h-3 text-gray-400 hover:text-gray-600" /></button>}
               </div>
             </div>
 
-            {/* Filters white card */}
+            {/* Filters */}
             <div className="flex-1 overflow-y-auto mx-2 my-2">
               <div className="bg-white rounded-lg border border-[#e5e7eb] overflow-hidden">
                 <BrandFilters
@@ -260,45 +254,46 @@ const Index = () => {
               </div>
             </div>
           </div>
-        </aside>
 
-        {/* ── Collapse toggle — floats over map, same colour as sidebar ── */}
-        <button
-          onClick={() => setFilterPanelOpen((v) => !v)}
-          title={filterPanelOpen ? "Hide filters" : "Show filters"}
-          style={{
-            position: "absolute",
-            left: filterPanelOpen ? "256px" : "0px",
-            top: "50%",
-            transform: "translateY(-50%)",
-            width: "18px",
-            height: "44px",
-            background: "#d8dbe0",
-            borderRadius: "0 8px 8px 0",
-            border: "none",
-            cursor: "pointer",
-            zIndex: 500,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#6b7280",
-            transition: "left 0.2s ease, background 0.15s ease",
-            boxShadow: "2px 0 6px rgba(0,0,0,0.08)",
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#c5c9d0"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#d8dbe0"; }}
-        >
-          {filterPanelOpen
-            ? <ChevronLeft style={{ width: 11, height: 11 }} />
-            : <ChevronRight style={{ width: 11, height: 11 }} />
-          }
-        </button>
+          {/* ── Toggle button — absolute, anchored to RIGHT edge of sidebar ── */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setFilterPanelOpen((v) => !v); }}
+            title={filterPanelOpen ? "Hide filters" : "Show filters"}
+            style={{
+              position: "absolute",
+              right: "-18px",       /* pokes out 18px beyond sidebar right edge */
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: "18px",
+              height: "44px",
+              background: "#e2e5ea",
+              borderRadius: "0 8px 8px 0",
+              border: "none",
+              cursor: "pointer",
+              zIndex: 500,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#6b7280",
+              boxShadow: "2px 0 6px rgba(0,0,0,0.07)",
+              transition: "background 0.15s ease",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#c8cbd2"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#e2e5ea"; }}
+          >
+            {filterPanelOpen
+              ? <ChevronLeft style={{ width: 11, height: 11 }} />
+              : <ChevronRight style={{ width: 11, height: 11 }} />
+            }
+          </button>
+        </aside>
 
         {/* ── Map area ── */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Top bar — "Great Britain" not "England" */}
+          {/* Top bar */}
           <div className="h-10 bg-white border-b border-gray-200 flex items-center px-4 gap-2 z-10 flex-shrink-0">
-            <span className="text-sm font-semibold text-gray-900">Country Explorer</span>
+            {/* Blue "Country Explorer" label */}
+            <span className="text-sm font-bold text-blue-600">Country Explorer</span>
             <span className="text-gray-300">·</span>
             <span className="text-xs text-gray-500">Great Britain</span>
             <span className="text-gray-300">·</span>
@@ -332,7 +327,7 @@ const Index = () => {
           </div>
         </div>
 
-        {/* ── Right region detail panel — wider, gray bg, white cards ── */}
+        {/* ── Right region panel ── */}
         {selectedRegion && (
           <aside
             className="flex-shrink-0 border-l border-[#d1d5db] bg-[#f0f2f5] flex flex-col overflow-y-auto"
