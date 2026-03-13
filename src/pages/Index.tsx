@@ -71,14 +71,14 @@ const NavBtn = ({
 
 const Sep = () => <span className="text-gray-300 text-xs select-none mx-1">·</span>;
 
-// Единый стиль для всех информационных чипов
+// Обычный информационный чип
 const InfoChip = ({ label }: { label: string }) => (
   <span className="text-[11px] text-gray-400 font-light select-none whitespace-nowrap tracking-normal">{label}</span>
 );
 
-// Синий чип для выбранного региона
+// Жирный синий чип для выбранного региона
 const RegionChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
-  <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-normal border border-blue-100 select-none whitespace-nowrap">
+  <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-semibold border border-blue-100 select-none whitespace-nowrap">
     {label}
     <button onClick={onRemove} className="hover:text-blue-800 ml-0.5 flex-shrink-0">
       <X className="w-2.5 h-2.5" />
@@ -90,12 +90,13 @@ const RegionChip = ({ label, onRemove }: { label: string; onRemove: () => void }
 const SidebarToggle = ({ isOpen, onClick }: { isOpen: boolean; onClick: () => void }) => (
   <button
     onClick={onClick}
-    className="absolute top-1/2 transform -translate-y-1/2 w-6 h-12 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-r-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-white transition-all z-50"
+    className="absolute top-1/2 transform -translate-y-1/2 w-6 h-12 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-r-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-white transition-all z-[1000]"
     style={{
       left: isOpen ? '263px' : '-1px',
       transition: 'left 0.2s ease-in-out',
       backdropFilter: 'blur(4px)',
-      boxShadow: '2px 0 8px rgba(0,0,0,0.1)'
+      boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+      pointerEvents: 'auto'
     }}
   >
     {isOpen ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -218,12 +219,12 @@ const Index = () => {
       {/* ── Content column ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* TOP BAR — все элементы в едином легком стиле */}
+        {/* TOP BAR — исправленное выравнивание */}
         <div
           className="bg-white border-b border-gray-200 flex items-center px-4 gap-1 flex-shrink-0"
-          style={{ zIndex: 150, position: "relative", overflow: "visible", height: 44 }}
+          style={{ zIndex: 150, position: "relative", overflow: "visible", height: 48 }}
         >
-          <span className="text-base font-bold text-blue-600 leading-none">Country Explorer</span>
+          <span className="text-xl font-bold text-blue-600 leading-none tracking-tight">Country Explorer</span>
           <Sep />
           <InfoChip label="Competitive Intelligence" />
           <Sep />
@@ -360,11 +361,13 @@ const Index = () => {
                     onDeselectAll={handleDeselectAllBrands}
                     searchQuery={brandSearch}
                   />
+                  {/* Передаем проп для отображения chains вместо brands */}
                   <CategoryFilters
                     selectedCategories={selectedCategories}
                     onToggleCategory={handleToggleCategory}
                     onSelectAll={handleSelectAllCategories}
                     onDeselectAll={handleDeselectAllCategories}
+                    showChains={true}
                   />
                 </div>
               </div>
