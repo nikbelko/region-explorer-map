@@ -12,7 +12,6 @@ function hashStr(s: string): number {
   for (let i = 0; i < s.length; i++) h = s.charCodeAt(i) + ((h << 5) - h);
   return h;
 }
-
 function getBrandDynamics(region: string, brand: string, period: Period): number {
   const base = (Math.abs(hashStr(`${region}:${brand}`)) % 21) - 6;
   return Math.round((base * PERIOD_MULTIPLIERS[period]) / 3);
@@ -25,9 +24,7 @@ interface RegionInfoPanelProps {
 }
 
 const Card = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-  <div className={`mx-2 mt-2 bg-white rounded-lg border border-[#e5e7eb] ${className}`}>
-    {children}
-  </div>
+  <div className={`mx-2 mt-2 bg-white rounded-lg border border-[#e5e7eb] ${className}`}>{children}</div>
 );
 
 const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionInfoPanelProps) => {
@@ -37,19 +34,17 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
 
   const population = getRegionPopulation(selectedRegion);
   const area = getRegionArea(selectedRegion);
-  const populationDensity = population && area
-    ? Math.round((population * 1_000_000) / area)
-    : null;
+  const populationDensity = population && area ? Math.round((population * 1_000_000) / area) : null;
   const totalPoints = regionStats?.totalPoints ?? 0;
-  const concentrationIndex = population && population > 0
-    ? Math.round((totalPoints / (population * 1_000_000)) * 100_000 * 10) / 10
-    : null;
+  const concentrationIndex =
+    population && population > 0
+      ? Math.round((totalPoints / (population * 1_000_000)) * 100_000 * 10) / 10
+      : null;
   const top3Brands = regionStats?.brands.slice(0, 3) ?? [];
-  const top3Share = totalPoints > 0
-    ? Math.round(top3Brands.reduce((s, b) => s + b.count, 0) / totalPoints * 100)
-    : 0;
-  const totalDynamics = regionStats?.brands.reduce((sum, b) =>
-    sum + getBrandDynamics(selectedRegion, b.brand, period), 0) ?? 0;
+  const top3Share =
+    totalPoints > 0 ? Math.round((top3Brands.reduce((s, b) => s + b.count, 0) / totalPoints) * 100) : 0;
+  const totalDynamics =
+    regionStats?.brands.reduce((sum, b) => sum + getBrandDynamics(selectedRegion, b.brand, period), 0) ?? 0;
 
   return (
     <div className="flex flex-col h-full pb-2">
@@ -60,50 +55,57 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
           <h3 className="text-base font-bold text-gray-900 leading-tight">{selectedRegion}</h3>
           <p className="text-xs text-gray-400 mt-0.5">Great Britain · Region detail</p>
         </div>
-        <button onClick={onClearRegion} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 mt-0.5">
+        <button
+          onClick={onClearRegion}
+          className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 mt-0.5"
+        >
           <X className="w-3.5 h-3.5" />
         </button>
       </Card>
 
-      {/* Geo stats — 3 columns with light vertical dividers */}
+      {/* Geo stats — 3 columns with dividers, whitespace-nowrap to prevent km² wrap */}
       <Card className="px-0 py-3 flex-shrink-0">
         <div className="flex items-stretch divide-x divide-gray-100">
-          <div className="flex-1 px-4">
+          <div className="flex-1 px-3 min-w-0">
             <p className="text-[11px] text-gray-400 mb-0.5">Area</p>
-            <p className="text-[13px] font-bold text-gray-700 leading-tight">
+            <p className="text-[13px] font-bold text-gray-700 leading-tight whitespace-nowrap">
               {area ? `${area.toLocaleString()} km²` : "—"}
             </p>
           </div>
-          <div className="flex-1 px-4">
+          <div className="flex-1 px-3 min-w-0">
             <p className="text-[11px] text-gray-400 mb-0.5">Population</p>
-            <p className="text-[13px] font-bold text-gray-700 leading-tight">
+            <p className="text-[13px] font-bold text-gray-700 leading-tight whitespace-nowrap">
               {population ? `${population}M` : "—"}
             </p>
           </div>
-          <div className="flex-1 px-4">
+          <div className="flex-1 px-3 min-w-0">
             <p className="text-[11px] text-gray-400 mb-0.5">Density</p>
-            <p className="text-[13px] font-bold text-gray-700 leading-tight">
+            <p className="text-[13px] font-bold text-gray-700 leading-tight whitespace-nowrap">
               {populationDensity ? `${populationDensity.toLocaleString()} /km²` : "—"}
             </p>
           </div>
         </div>
       </Card>
 
-      {/* Metrics:
-          Row 1: Locations (full width — spans 2 cols)
-          Row 2: Per 100k | Top-3 share
-          Population metric removed.
-      */}
+      {/* Metrics */}
       <div className="mx-2 mt-2 flex flex-col gap-2 flex-shrink-0">
         {/* Locations — full width */}
         <div className="bg-white rounded-lg border border-[#e5e7eb] px-4 py-3">
           <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Locations</p>
           <p className="text-3xl font-black text-gray-900 leading-none">{totalPoints}</p>
         </div>
-        {/* Per 100k + Top-3 share — side by side */}
+        {/* Presence density + Top-3 share */}
         <div className="grid grid-cols-2 gap-2">
-          <div className="bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
-            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Per 100k</p>
+          {/* Presence density with tooltip */}
+          <div className="relative group bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 cursor-help underline decoration-dotted decoration-gray-300">
+              Presence density
+            </p>
+            {/* Tooltip */}
+            <div className="pointer-events-none absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+              Locations per 100K population
+              <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
+            </div>
             <p className="text-3xl font-black text-gray-900 leading-none">
               {concentrationIndex !== null ? concentrationIndex : "—"}
             </p>
@@ -117,7 +119,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         </div>
       </div>
 
-      {/* Dynamics — period pills left-anchored, big number right */}
+      {/* Dynamics */}
       <Card className="px-4 py-3 flex items-center gap-3 flex-shrink-0">
         <div className="flex items-center gap-0.5 flex-shrink-0">
           {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
@@ -137,8 +139,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {totalDynamics >= 0
             ? <TrendingUp className="w-5 h-5 text-emerald-500" />
-            : <TrendingDown className="w-5 h-5 text-red-400" />
-          }
+            : <TrendingDown className="w-5 h-5 text-red-400" />}
           <span className={`text-2xl font-black leading-none ${totalDynamics >= 0 ? "text-emerald-500" : "text-red-400"}`}>
             {totalDynamics >= 0 ? "+" : ""}{totalDynamics}
           </span>
@@ -174,7 +175,6 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
           <p className="text-xs text-gray-400 italic px-4 py-3">No locations match current filters</p>
         )}
       </Card>
-
     </div>
   );
 };
