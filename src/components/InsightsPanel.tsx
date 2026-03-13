@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Lightbulb } from "lucide-react";
-import { Brand, BRAND_COLOR_MAP, RegionStats } from "@/data/regions";
+import { Brand, RegionStats } from "@/data/regions";
 import { Category, CATEGORY_BRAND_MAP } from "@/components/CategoryFilters";
 
 interface InsightsPanelProps {
@@ -12,28 +12,24 @@ interface InsightsPanelProps {
 
 const InsightsPanel = ({ selectedRegion, regionStats, selectedBrands, selectedCategories }: InsightsPanelProps) => {
   const insights = useMemo(() => {
-    // GLOBAL insights when no region selected
     if (!selectedRegion || !regionStats) {
       const result: string[] = [];
-
       if (selectedBrands.includes("McDonald's") && selectedBrands.includes("KFC")) {
-        result.push("McDonald's и KFC присутствуют во всех регионах Англии");
+        result.push("McDonald's and KFC are present in all England regions");
       }
       if (selectedBrands.includes("Domino's")) {
-        result.push("Domino's — самая распространённая пицца-сеть в стране");
+        result.push("Domino's is the most widespread pizza chain in the country");
       }
       if (selectedBrands.includes("Subway")) {
-        result.push("Subway лидирует в категории сэндвичей по охвату регионов");
+        result.push("Subway leads in sandwich category by region coverage");
       }
       if (selectedBrands.includes("Nando's")) {
-        result.push("Nando's сконцентрирован преимущественно в южных регионах");
+        result.push("Nando's is concentrated primarily in southern regions");
       }
-      result.push("Выберите регион на карте для детальных инсайтов");
-
+      result.push("Select a region on the map for detailed insights");
       return result.slice(0, 4);
     }
 
-    // REGIONAL insights (existing behavior)
     const result: string[] = [];
 
     for (const b of regionStats.brands) {
@@ -44,55 +40,50 @@ const InsightsPanel = ({ selectedRegion, regionStats, selectedBrands, selectedCa
         hash = key.charCodeAt(i) + ((hash << 5) - hash);
       }
       const change = (Math.abs(hash) % 21) - 6;
-
       if (change >= 0) {
-        result.push(`В ${selectedRegion} бренд ${b.brand} открыл +${change} точек за квартал`);
+        result.push(`${b.brand} opened +${change} locations in ${selectedRegion} this quarter`);
       } else {
-        result.push(`В ${selectedRegion} бренд ${b.brand} закрыл ${change} точек за квартал`);
+        result.push(`${b.brand} closed ${Math.abs(change)} locations in ${selectedRegion} this quarter`);
       }
     }
 
     for (const cat of selectedCategories) {
       const catBrands = CATEGORY_BRAND_MAP[cat].filter((br) => selectedBrands.includes(br));
       if (catBrands.length === 0) continue;
-
       let hash = 0;
       const key = `${selectedRegion}:cat:${cat}`;
       for (let i = 0; i < key.length; i++) {
         hash = key.charCodeAt(i) + ((hash << 5) - hash);
       }
       const change = (Math.abs(hash) % 25) - 10;
-
       if (change >= 0) {
-        result.push(`В ${selectedRegion} точки категории «${cat}» выросли на +${change} за квартал`);
+        result.push(`"${cat}" category grew by +${change} locations in ${selectedRegion}`);
       } else {
-        result.push(`В ${selectedRegion} точки категории «${cat}» сократились на ${Math.abs(change)} за квартал`);
+        result.push(`"${cat}" category shrank by ${Math.abs(change)} locations in ${selectedRegion}`);
       }
     }
 
     return result;
   }, [selectedRegion, regionStats, selectedBrands, selectedCategories]);
 
-  const headerText = selectedRegion ? `${selectedRegion} — Инсайты` : "England — Инсайты";
+  const headerText = selectedRegion ? `${selectedRegion} — Insights` : "England — Insights";
 
   return (
-    <div className="absolute bottom-6 left-6 right-64 z-[1000] bg-card/80 backdrop-blur-md border border-border rounded-lg p-3 max-h-32 overflow-y-auto">
-      <div className="flex items-center gap-2 mb-2">
-        <Lightbulb className="w-3.5 h-3.5 text-primary" />
-        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="absolute bottom-4 left-4 right-[220px] z-[1000] bg-white border border-gray-200 rounded-lg shadow-sm p-3 max-h-28 overflow-y-auto">
+      <div className="flex items-center gap-2 mb-1.5">
+        <Lightbulb className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
           {headerText}
         </h4>
       </div>
       {insights.length > 0 ? (
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           {insights.map((text, i) => (
-            <p key={i} className="text-xs text-foreground/80">
-              • {text}
-            </p>
+            <p key={i} className="text-xs text-gray-600">• {text}</p>
           ))}
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground italic">Нет данных для отображения инсайтов</p>
+        <p className="text-xs text-gray-400 italic">No insights available</p>
       )}
     </div>
   );
