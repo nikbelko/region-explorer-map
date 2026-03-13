@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Lightbulb } from "lucide-react";
+import { ArrowLeft, Lightbulb, Map, BarChart2, List, Star, Settings, LogOut, ChevronRight } from "lucide-react";
 import L from "leaflet";
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
 import { point as turfPoint } from "@turf/helpers";
 import { Brand, BRANDS, BRAND_CONFIGS } from "@/data/regions";
-import { useRestaurantData, RestaurantPoint } from "@/hooks/useRestaurantData";
+import { useRestaurantData } from "@/hooks/useRestaurantData";
 import {
   Table,
   TableBody,
@@ -18,18 +18,11 @@ import {
 const BRAND_A_COLOR = "#3B82F6";
 const BRAND_B_COLOR = "#F97316";
 
-const REGION_COLORS = [
-  "hsl(185, 72%, 48%)", "hsl(340, 65%, 55%)", "hsl(45, 85%, 55%)",
-  "hsl(130, 50%, 50%)", "hsl(270, 55%, 55%)", "hsl(20, 80%, 55%)",
-  "hsl(200, 70%, 55%)", "hsl(160, 55%, 50%)", "hsl(300, 50%, 55%)",
-  "hsl(60, 70%, 50%)", "hsl(0, 72%, 55%)", "hsl(210, 65%, 55%)",
-];
-
 type Period = "month" | "quarter" | "year";
 const PERIOD_LABELS: Record<Period, string> = {
-  month: "месяц",
-  quarter: "квартал",
-  year: "год",
+  month: "Month",
+  quarter: "Quarter",
+  year: "Year",
 };
 const PERIOD_MULTIPLIERS: Record<Period, number> = {
   month: 1,
@@ -47,8 +40,7 @@ function hashStr(s: string): number {
 
 function getBrandDynamics(region: string, brand: string, period: Period): number {
   const base = (Math.abs(hashStr(`${region}:${brand}`)) % 21) - 6;
-  const multiplier = PERIOD_MULTIPLIERS[period];
-  return Math.round(base * multiplier / 3);
+  return Math.round(base * PERIOD_MULTIPLIERS[period] / 3);
 }
 
 interface RegionComparison {
@@ -74,7 +66,7 @@ const Compare = () => {
   const markerLayerA = useRef<L.LayerGroup | null>(null);
   const markerLayerB = useRef<L.LayerGroup | null>(null);
 
-  // Load map and regions
+  // Load map + regions
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
 
@@ -85,7 +77,8 @@ const Compare = () => {
       attributionControl: true,
     });
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    // Light tiles
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
       subdomains: "abcd",
       maxZoom: 19,
@@ -99,13 +92,13 @@ const Compare = () => {
       .then((res) => res.json())
       .then((data) => {
         setRegionsData(data);
-        let colorIndex = 0;
         const geoLayer = L.geoJSON(data, {
-          style: () => {
-            const color = REGION_COLORS[colorIndex % REGION_COLORS.length];
-            colorIndex++;
-            return { color: "#fff", weight: 2, fillColor: color, fillOpacity: 0.3 };
-          },
+          style: () => ({
+            color: "#ffffff",
+            weight: 1.5,
+            fillColor: "#e5e7eb",
+            fillOpacity: 0.5,
+          }),
           onEachFeature: (feature, layer) => {
             const name = feature?.properties?.ITL125NM || `Region ${feature?.id || "unknown"}`;
             (layer as any)._regionName = name;
@@ -123,7 +116,7 @@ const Compare = () => {
     };
   }, []);
 
-  // Update markers when brands or data change
+  // Update markers
   useEffect(() => {
     if (!markerLayerA.current || !markerLayerB.current) return;
     markerLayerA.current.clearLayers();
@@ -132,15 +125,19 @@ const Compare = () => {
     restaurants.forEach((r) => {
       if (r.brand === brandA) {
         const m = L.circleMarker([r.lat, r.lng], {
-          radius: 5, fillColor: BRAND_A_COLOR, color: BRAND_A_COLOR, weight: 1, fillOpacity: 0.85,
+          radius: 5, fillColor: BRAND_A_COLOR, color: "#ffffff", weight: 1, fillOpacity: 0.9,
         });
-        m.bindTooltip(`<strong style="color:${BRAND_A_COLOR}">${r.brand}</strong><br/>${r.name}`, { direction: "top", offset: [0, -6], className: "brand-tooltip" });
+        m.bindTooltip(`<strong style="color:${BRAND_A_COLOR}">${r.brand}</strong><br/>${r.name}`, {
+          direction: "top", offset: [0, -6], className: "brand-tooltip",
+        });
         markerLayerA.current!.addLayer(m);
       } else if (r.brand === brandB) {
         const m = L.circleMarker([r.lat, r.lng], {
-          radius: 5, fillColor: BRAND_B_COLOR, color: BRAND_B_COLOR, weight: 1, fillOpacity: 0.85,
+          radius: 5, fillColor: BRAND_B_COLOR, color: "#ffffff", weight: 1, fillOpacity: 0.9,
         });
-        m.bindTooltip(`<strong style="color:${BRAND_B_COLOR}">${r.brand}</strong><br/>${r.name}`, { direction: "top", offset: [0, -6], className: "brand-tooltip" });
+        m.bindTooltip(`<strong style="color:${BRAND_B_COLOR}">${r.brand}</strong><br/>${r.name}`, {
+          direction: "top", offset: [0, -6], className: "brand-tooltip",
+        });
         markerLayerB.current!.addLayer(m);
       }
     });
@@ -149,7 +146,6 @@ const Compare = () => {
   // Compute comparison data
   const comparisons = useMemo<RegionComparison[]>(() => {
     if (!regionsData || restaurants.length === 0) return [];
-
     const features = regionsData.features || [];
     const results: RegionComparison[] = [];
 
@@ -157,7 +153,6 @@ const Compare = () => {
       const name = feature?.properties?.ITL125NM || `Region ${feature?.id || "unknown"}`;
       let countA = 0;
       let countB = 0;
-
       for (const r of restaurants) {
         if (r.brand !== brandA && r.brand !== brandB) continue;
         try {
@@ -168,7 +163,6 @@ const Compare = () => {
           }
         } catch { /* skip */ }
       }
-
       results.push({
         region: name,
         countA,
@@ -176,27 +170,25 @@ const Compare = () => {
         leader: countA > countB ? "A" : countB > countA ? "B" : "tie",
       });
     }
-
     return results.sort((a, b) => (b.countA + b.countB) - (a.countA + a.countB));
   }, [regionsData, restaurants, brandA, brandB]);
 
-  // Color regions by leader + highlight selected
+  // Color regions by leader
   useEffect(() => {
     if (!layersRef.current) return;
     const leaderMap: Record<string, "A" | "B" | "tie"> = {};
-    for (const c of comparisons) {
-      leaderMap[c.region] = c.leader;
-    }
+    for (const c of comparisons) leaderMap[c.region] = c.leader;
+
     layersRef.current.eachLayer((layer: any) => {
       const name = layer._regionName;
       const isSelected = name === selectedRegion;
       const leader = leaderMap[name];
-      const fillColor = leader === "A" ? BRAND_A_COLOR : leader === "B" ? BRAND_B_COLOR : "hsl(220, 15%, 40%)";
+      const fillColor = leader === "A" ? BRAND_A_COLOR : leader === "B" ? BRAND_B_COLOR : "#e5e7eb";
       layer.setStyle({
         fillColor,
-        fillOpacity: isSelected ? 0.6 : 0.35,
-        weight: isSelected ? 4 : 2,
-        color: isSelected ? "#ffffff" : "rgba(255,255,255,0.4)",
+        fillOpacity: isSelected ? 0.7 : 0.4,
+        weight: isSelected ? 3 : 1.5,
+        color: isSelected ? "#1d4ed8" : "#ffffff",
       });
       if (isSelected) layer.bringToFront();
     });
@@ -206,35 +198,28 @@ const Compare = () => {
   const totalB = comparisons.reduce((s, c) => s + c.countB, 0);
   const overallLeader = totalA > totalB ? "A" : totalB > totalA ? "B" : "tie";
 
-  // Dynamics per region
   const getDelta = useCallback((region: string) => {
-    const dA = getBrandDynamics(region, brandA, period);
-    const dB = getBrandDynamics(region, brandB, period);
-    return dA - dB;
+    return getBrandDynamics(region, brandA, period) - getBrandDynamics(region, brandB, period);
   }, [brandA, brandB, period]);
 
   const totalDelta = comparisons.reduce((s, c) => s + getDelta(c.region), 0);
 
-  // Insights
   const insights = useMemo(() => {
     if (comparisons.length === 0) return [];
     const result: string[] = [];
-
     const aWins = comparisons.filter((c) => c.leader === "A").length;
-    result.push(`${brandA} лидирует в ${aWins} из ${comparisons.length} регионов`);
+    result.push(`${brandA} leads in ${aWins} of ${comparisons.length} regions`);
 
     const bWinRegions = comparisons.filter((c) => c.leader === "B").map((c) => c.region);
     if (bWinRegions.length > 0) {
-      const shown = bWinRegions.slice(0, 3).join(", ");
-      const suffix = bWinRegions.length > 3 ? ` и ещё ${bWinRegions.length - 3}` : "";
-      result.push(`${brandB} лидирует в: ${shown}${suffix}`);
+      const shown = bWinRegions.slice(0, 2).join(", ");
+      const suffix = bWinRegions.length > 2 ? ` +${bWinRegions.length - 2} more` : "";
+      result.push(`${brandB} leads in: ${shown}${suffix}`);
     } else {
-      result.push(`${brandB} не лидирует ни в одном регионе`);
+      result.push(`${brandB} leads in no regions`);
     }
 
-    let maxGap = 0;
-    let maxGapRegion = "";
-    let maxGapWinner = "";
+    let maxGap = 0, maxGapRegion = "", maxGapWinner = "";
     for (const c of comparisons) {
       const gap = Math.abs(c.countA - c.countB);
       if (gap > maxGap) {
@@ -243,214 +228,263 @@ const Compare = () => {
         maxGapWinner = c.countA > c.countB ? brandA : brandB;
       }
     }
-    if (maxGap > 0) {
-      result.push(`Макс. разрыв: ${maxGapWinner} лидирует на ${maxGap} точек в ${maxGapRegion}`);
-    }
+    if (maxGap > 0) result.push(`Biggest gap: ${maxGapWinner} leads by ${maxGap} in ${maxGapRegion}`);
 
-    // Dynamics insight
     if (comparisons.length > 0) {
-      const avgA = comparisons.reduce((s, c) => s + getBrandDynamics(c.region, brandA, period), 0) / comparisons.length;
-      const avgB = comparisons.reduce((s, c) => s + getBrandDynamics(c.region, brandB, period), 0) / comparisons.length;
-      result.push(`За ${PERIOD_LABELS[period]} ${brandA} в среднем ${avgA >= 0 ? "+" : ""}${avgA.toFixed(1)} точек/регион vs ${brandB} ${avgB >= 0 ? "+" : ""}${avgB.toFixed(1)}`);
+      const avgA = (comparisons.reduce((s, c) => s + getBrandDynamics(c.region, brandA, period), 0) / comparisons.length).toFixed(1);
+      const avgB = (comparisons.reduce((s, c) => s + getBrandDynamics(c.region, brandB, period), 0) / comparisons.length).toFixed(1);
+      result.push(`This ${PERIOD_LABELS[period].toLowerCase()}: ${brandA} avg ${Number(avgA) >= 0 ? "+" : ""}${avgA} vs ${brandB} ${Number(avgB) >= 0 ? "+" : ""}${avgB} per region`);
     }
-
     return result;
   }, [comparisons, brandA, brandB, period]);
 
   const isLoading = dataLoading || mapLoading;
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
-      <aside className="w-[30%] min-w-[280px] border-r border-border bg-card flex flex-col">
-        <header className="px-5 py-4 border-b border-border">
-          <button
-            onClick={() => navigate("/")}
-            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mb-3 transition-colors"
-          >
-            <ArrowLeft className="w-3 h-3" />
-            Country Explorer
-          </button>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-primary">
-              Getplace
+    <div className="flex h-screen w-screen overflow-hidden bg-white">
+
+      {/* Left icon navbar */}
+      <nav className="w-12 flex-shrink-0 bg-[#1c1c1e] flex flex-col items-center py-3 gap-1 z-20">
+        <div className="w-8 h-8 mb-3 flex items-center justify-center">
+          <svg viewBox="0 0 107.57 137.26" className="w-5 h-5" fill="#9a9d9e">
+            <path d="M77,60.2c17.98,6.17,31.89-14.53,21.26-30.29C89.01,16.2,73.41,7.2,55.72,7.2C27.33,7.2,4.31,30.4,4.31,59.03c0,33.56,38.08,63.1,48.7,70.68c1.65,1.18,3.78,1.18,5.43,0c5.79-4.13,19.74-14.8,31.24-29.08c8.85-11,3.92-26.29-8.16-33.59c-7.96-4.81-19.96-4.13-23.53,4.45c-1.76,4.23-1.72,8.9,2.87,13.5C71.27,95.39,40.3,98.85,40.3,74.58c0-19.82,21.52-22.05,28.92-17.89C71.88,58.18,74.48,59.33,77,60.2z" />
+          </svg>
+        </div>
+        <button onClick={() => navigate("/")} title="Map" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d2d2f] transition-colors">
+          <Map className="w-4 h-4" />
+        </button>
+        <button title="Analytics" className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#2d2d2f] text-white">
+          <BarChart2 className="w-4 h-4" />
+        </button>
+        <button title="List" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d2d2f] transition-colors">
+          <List className="w-4 h-4" />
+        </button>
+        <button title="Saved" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d2d2f] transition-colors">
+          <Star className="w-4 h-4" />
+        </button>
+        <div className="flex-1" />
+        <button title="Settings" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white transition-colors">
+          <Settings className="w-4 h-4" />
+        </button>
+        <button title="Logout" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white transition-colors">
+          <LogOut className="w-4 h-4" />
+        </button>
+      </nav>
+
+      {/* Left panel */}
+      <aside className="w-[280px] flex-shrink-0 border-r border-gray-200 bg-white flex flex-col">
+
+        {/* Breadcrumb header */}
+        <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
+          <div className="flex items-center gap-1 text-xs text-gray-400 mb-2.5">
+            <button onClick={() => navigate("/")} className="font-medium text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1">
+              <ArrowLeft className="w-3 h-3" />
+              Country Explorer
+            </button>
+            <ChevronRight className="w-3 h-3" />
+            <span className="font-medium text-gray-700">Compare</span>
+          </div>
+          <h1 className="text-sm font-semibold text-gray-900">Brand Comparison</h1>
+          <p className="text-xs text-gray-400 mt-0.5">England · Head-to-head</p>
+        </div>
+
+        {/* Brand selectors */}
+        <div className="px-4 py-3 border-b border-gray-200 space-y-3 flex-shrink-0">
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-2 mb-1.5">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
+              Brand A
+            </label>
+            <select
+              value={brandA}
+              onChange={(e) => setBrandA(e.target.value as Brand)}
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm text-gray-900 bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            >
+              {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-2 mb-1.5">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
+              Brand B
+            </label>
+            <select
+              value={brandB}
+              onChange={(e) => setBrandB(e.target.value as Brand)}
+              className="w-full border border-gray-200 rounded-md px-3 py-1.5 text-sm text-gray-900 bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            >
+              {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+
+          {/* Color legend */}
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5 text-xs text-gray-500">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
+              {brandA}
+            </span>
+            <span className="flex items-center gap-1.5 text-xs text-gray-500">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
+              {brandB}
             </span>
           </div>
-          <h1 className="text-lg font-bold text-foreground">Brand Comparison</h1>
-          <p className="text-xs text-muted-foreground">England • Head-to-head</p>
-        </header>
+        </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {/* Brand selectors */}
-          <div className="space-y-3">
-            <div>
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2 mb-1.5">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
-                Brand A
-              </label>
-              <select
-                value={brandA}
-                onChange={(e) => setBrandA(e.target.value as Brand)}
-                className="w-full bg-secondary border border-border rounded-md px-3 py-1.5 text-sm text-foreground"
-              >
-                {BRANDS.map((b) => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2 mb-1.5">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
-                Brand B
-              </label>
-              <select
-                value={brandB}
-                onChange={(e) => setBrandB(e.target.value as Brand)}
-                className="w-full bg-secondary border border-border rounded-md px-3 py-1.5 text-sm text-foreground"
-              >
-                {BRANDS.map((b) => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
-                Brand A
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
-                Brand B
-              </span>
+        {/* Table area */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Period selector */}
+          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 sticky top-0 bg-white z-10">
+            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Trend</span>
+            <div className="flex items-center gap-0.5">
+              {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors ${
+                    period === p
+                      ? "bg-blue-600 text-white"
+                      : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  {PERIOD_LABELS[p]}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Period selector + Comparison table */}
-          <div className="border border-border rounded-lg overflow-hidden">
-            <div className="flex items-center justify-between px-2 py-1.5 border-b border-border/40">
-              <span className="text-[10px] text-muted-foreground">Динамика за</span>
-              <div className="flex items-center gap-0.5">
-                {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setPeriod(p)}
-                    className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
-                      period === p
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+          {/* Comparison table */}
+          <Table>
+            <TableHeader>
+              <TableRow className="border-b border-gray-100 bg-gray-50">
+                <TableHead className="text-[10px] h-8 px-3 font-semibold uppercase tracking-wider text-gray-400">Region</TableHead>
+                <TableHead className="text-[10px] h-8 px-2 text-right font-semibold" style={{ color: BRAND_A_COLOR }}>A</TableHead>
+                <TableHead className="text-[10px] h-8 px-2 text-right font-semibold" style={{ color: BRAND_B_COLOR }}>B</TableHead>
+                <TableHead className="text-[10px] h-8 px-2 font-semibold uppercase tracking-wider text-gray-400">Leader</TableHead>
+                <TableHead className="text-[10px] h-8 px-2 text-right font-semibold text-gray-400">Δ</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {comparisons.map((c) => {
+                const delta = getDelta(c.region);
+                const isSelected = selectedRegion === c.region;
+                return (
+                  <TableRow
+                    key={c.region}
+                    className={`border-b border-gray-50 cursor-pointer transition-colors ${
+                      isSelected ? "bg-blue-50" : "hover:bg-gray-50"
                     }`}
+                    onClick={() => setSelectedRegion(c.region)}
                   >
-                    {PERIOD_LABELS[p]}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b border-border/40">
-                  <TableHead className="text-[10px] h-8 px-2">Region</TableHead>
-                  <TableHead className="text-[10px] h-8 px-2 text-right" style={{ color: BRAND_A_COLOR }}>A</TableHead>
-                  <TableHead className="text-[10px] h-8 px-2 text-right" style={{ color: BRAND_B_COLOR }}>B</TableHead>
-                  <TableHead className="text-[10px] h-8 px-2">Leader</TableHead>
-                  <TableHead className="text-[10px] h-8 px-2 text-right">
-                    Δ <span className="text-muted-foreground">(эксп.)</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {comparisons.map((c) => {
-                  const delta = getDelta(c.region);
-                  return (
-                    <TableRow
-                      key={c.region}
-                      className={`border-b border-border/40 cursor-pointer ${selectedRegion === c.region ? "bg-secondary" : ""}`}
-                      onClick={() => setSelectedRegion(c.region)}
+                    <TableCell
+                      className="text-xs py-2 px-3 font-medium"
+                      style={{
+                        backgroundColor: c.leader === "A"
+                          ? `${BRAND_A_COLOR}18`
+                          : c.leader === "B"
+                          ? `${BRAND_B_COLOR}18`
+                          : "transparent",
+                        color: c.leader === "A"
+                          ? BRAND_A_COLOR
+                          : c.leader === "B"
+                          ? BRAND_B_COLOR
+                          : "#6b7280",
+                      }}
                     >
-                      <TableCell className="text-xs py-1.5 px-2">{c.region}</TableCell>
-                      <TableCell className="text-xs py-1.5 px-2 text-right font-medium">{c.countA}</TableCell>
-                      <TableCell className="text-xs py-1.5 px-2 text-right font-medium">{c.countB}</TableCell>
-                      <TableCell className="text-xs py-1.5 px-2">
-                        {c.leader === "tie" ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : (
-                          <span style={{ color: c.leader === "A" ? BRAND_A_COLOR : BRAND_B_COLOR }}>
-                            {c.leader === "A" ? brandA : brandB}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className={`text-xs py-1.5 px-2 text-right font-medium ${delta > 0 ? "text-green-400" : delta < 0 ? "text-red-400" : "text-muted-foreground"}`}>
-                        {delta > 0 ? "+" : ""}{delta}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {comparisons.length > 0 && (
-                  <TableRow className="border-t border-border font-semibold">
-                    <TableCell className="text-xs py-1.5 px-2">Total</TableCell>
-                    <TableCell className="text-xs py-1.5 px-2 text-right">{totalA}</TableCell>
-                    <TableCell className="text-xs py-1.5 px-2 text-right">{totalB}</TableCell>
-                    <TableCell className="text-xs py-1.5 px-2">
-                      {overallLeader === "tie" ? (
-                        <span className="text-muted-foreground">—</span>
+                      {c.region}
+                    </TableCell>
+                    <TableCell className="text-xs py-2 px-2 text-right font-semibold text-gray-800">{c.countA}</TableCell>
+                    <TableCell className="text-xs py-2 px-2 text-right font-semibold text-gray-800">{c.countB}</TableCell>
+                    <TableCell className="text-xs py-2 px-2">
+                      {c.leader === "tie" ? (
+                        <span className="text-gray-300">—</span>
                       ) : (
-                        <span style={{ color: overallLeader === "A" ? BRAND_A_COLOR : BRAND_B_COLOR }}>
-                          {overallLeader === "A" ? brandA : brandB}
+                        <span className="font-medium" style={{ color: c.leader === "A" ? BRAND_A_COLOR : BRAND_B_COLOR }}>
+                          {c.leader === "A" ? brandA : brandB}
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className={`text-xs py-1.5 px-2 text-right font-medium ${totalDelta > 0 ? "text-green-400" : totalDelta < 0 ? "text-red-400" : "text-muted-foreground"}`}>
-                      {totalDelta > 0 ? "+" : ""}{totalDelta}
+                    <TableCell className={`text-xs py-2 px-2 text-right font-medium ${
+                      delta > 0 ? "text-emerald-600" : delta < 0 ? "text-red-500" : "text-gray-400"
+                    }`}>
+                      {delta > 0 ? "+" : ""}{delta}
                     </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                );
+              })}
+
+              {comparisons.length > 0 && (
+                <TableRow className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+                  <TableCell
+                    className="text-xs py-2 px-3 font-bold"
+                    style={{
+                      color: overallLeader === "A" ? BRAND_A_COLOR : overallLeader === "B" ? BRAND_B_COLOR : "#374151",
+                      backgroundColor: overallLeader === "A" ? `${BRAND_A_COLOR}18` : overallLeader === "B" ? `${BRAND_B_COLOR}18` : "transparent",
+                    }}
+                  >
+                    Total
+                  </TableCell>
+                  <TableCell className="text-xs py-2 px-2 text-right font-bold text-gray-900">{totalA}</TableCell>
+                  <TableCell className="text-xs py-2 px-2 text-right font-bold text-gray-900">{totalB}</TableCell>
+                  <TableCell className="text-xs py-2 px-2">
+                    {overallLeader === "tie" ? (
+                      <span className="text-gray-300">—</span>
+                    ) : (
+                      <span className="font-bold" style={{ color: overallLeader === "A" ? BRAND_A_COLOR : BRAND_B_COLOR }}>
+                        {overallLeader === "A" ? brandA : brandB}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className={`text-xs py-2 px-2 text-right font-bold ${
+                    totalDelta > 0 ? "text-emerald-600" : totalDelta < 0 ? "text-red-500" : "text-gray-400"
+                  }`}>
+                    {totalDelta > 0 ? "+" : ""}{totalDelta}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </div>
       </aside>
 
+      {/* Map */}
       <main className="flex-1 relative">
         <div ref={mapRef} className="w-full h-full" />
 
-        {/* Legend */}
-        <div className="absolute bottom-6 right-6 z-[1000] bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3">
-          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Легенда</h4>
+        {/* Map legend */}
+        <div className="absolute bottom-5 right-5 z-[1000] bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Legend</h4>
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: BRAND_A_COLOR }} />
-              <span className="text-xs text-foreground/80">{brandA}</span>
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
+              <span className="text-xs text-gray-600">{brandA}</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: BRAND_B_COLOR }} />
-              <span className="text-xs text-foreground/80">{brandB}</span>
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
+              <span className="text-xs text-gray-600">{brandB}</span>
             </div>
           </div>
         </div>
 
         {/* Insights */}
         {insights.length > 0 && (
-          <div className="absolute bottom-6 left-6 right-64 z-[1000] bg-card/80 backdrop-blur-md border border-border rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <Lightbulb className="w-3.5 h-3.5 text-primary" />
-              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Инсайты
-              </h4>
+          <div className="absolute bottom-4 left-4 right-[180px] z-[1000] bg-white border border-gray-200 rounded-lg shadow-sm p-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Lightbulb className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Insights</h4>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {insights.map((text, i) => (
-                <p key={i} className="text-xs text-foreground/80">• {text}</p>
+                <p key={i} className="text-xs text-gray-600">• {text}</p>
               ))}
             </div>
           </div>
         )}
 
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-[1000]">
-            <div className="flex items-center gap-3 text-primary">
-              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm font-medium">Загрузка данных...</span>
+          <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-[1000]">
+            <div className="flex items-center gap-3">
+              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm font-medium text-gray-600">Loading data...</span>
             </div>
           </div>
         )}
