@@ -39,7 +39,6 @@ const Card = ({ children, className = "" }: { children: React.ReactNode; classNa
 // Расчет максимальных значений по стране для нормализации
 const calculateCountryMax = () => {
   // В реальном приложении нужно передавать реальные максимумы по всем регионам
-  // Сейчас используем заглушки, основанные на типичных значениях для Great Britain
   return {
     saturation: 35, // Максимальная насыщенность (ресторанов на 100K)
     top3Share: 100, // Максимальная доля топ-3 (100%)
@@ -49,6 +48,19 @@ const calculateCountryMax = () => {
 };
 
 type TabType = "brands" | "radar";
+
+// Функция для определения цвета vs Avg
+const getVsAvgColor = (value: number | null, metric: string): string => {
+  if (value === null) return "text-gray-400";
+  
+  // Для Saturation Index: отрицательное vs Avg = хорошо (рынок свободен) → зеленый
+  if (metric === "saturation") {
+    return value < 0 ? "text-emerald-500" : "text-red-400";
+  }
+  
+  // Для остальных метрик: положительное vs Avg = хорошо → зеленый
+  return value > 0 ? "text-emerald-500" : "text-red-400";
+};
 
 const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionInfoPanelProps) => {
   const [period, setPeriod] = useState<Period>("quarter");
@@ -109,13 +121,13 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   const normalizedChainDensity = chainDensity !== null 
     ? chainDensity / countryMax.chainDensity
     : 0;
-  const normalizedGrowthRate = Math.abs(totalDynamics) / countryMax.growthRate; // Берем абсолютное значение для геометрии
+  const normalizedGrowthRate = Math.abs(totalDynamics) / countryMax.growthRate;
 
   // Данные для радарной диаграммы (нормализованные)
   const radarData = [
     {
       subject: 'Saturation',
-      region: invertedSaturation, // Инвертированная насыщенность
+      region: invertedSaturation,
       originalRegion: saturationIndex,
       originalAvg: countryAvg.saturation,
       tooltipLabel: 'Saturation Index (inverted)'
@@ -195,7 +207,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
               <p className="text-3xl font-black text-blue-600 leading-none">{totalPoints}</p>
               {vsAvgTop3Share !== null && (
                 <p className="text-[9px] text-gray-400 mb-1">
-                  vs Avg <span className={vsAvgTop3Share >= 0 ? "text-emerald-500" : "text-red-400"}>
+                  vs Avg <span className={getVsAvgColor(vsAvgTop3Share, "top3")}>
                     {vsAvgTop3Share >= 0 ? "+" : ""}{vsAvgTop3Share}
                   </span>
                 </p>
@@ -212,7 +224,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
               </p>
               {vsAvgTop3Share !== null && (
                 <p className="text-[9px] text-gray-400 mb-1">
-                  vs Avg <span className={vsAvgTop3Share >= 0 ? "text-emerald-500" : "text-red-400"}>
+                  vs Avg <span className={getVsAvgColor(vsAvgTop3Share, "top3")}>
                     {vsAvgTop3Share >= 0 ? "+" : ""}{vsAvgTop3Share}%
                   </span>
                 </p>
@@ -239,7 +251,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
               </p>
               {vsAvgSaturation !== null && (
                 <p className="text-[9px] text-gray-400 mb-1">
-                  vs Avg <span className={vsAvgSaturation >= 0 ? "text-emerald-500" : "text-red-400"}>
+                  vs Avg <span className={getVsAvgColor(vsAvgSaturation, "saturation")}>
                     {vsAvgSaturation >= 0 ? "+" : ""}{vsAvgSaturation}
                   </span>
                 </p>
@@ -263,7 +275,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
               </p>
               {vsAvgChainDensity !== null && (
                 <p className="text-[9px] text-gray-400 mb-1">
-                  vs Avg <span className={vsAvgChainDensity >= 0 ? "text-emerald-500" : "text-red-400"}>
+                  vs Avg <span className={getVsAvgColor(vsAvgChainDensity, "chain")}>
                     {vsAvgChainDensity >= 0 ? "+" : ""}{vsAvgChainDensity}
                   </span>
                 </p>
@@ -273,10 +285,11 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         </div>
       </div>
 
-      {/* Dynamics Card с vs Avg внутри */}
+      {/* Growth Rate Card с заголовком и переключателем внутри */}
       <Card className="px-4 py-3 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-0.5 flex-shrink-0">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] text-gray-400 uppercase tracking-wider">Growth Rate</p>
+          <div className="flex items-center gap-0.5">
             {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
               <button
                 key={p}
@@ -290,8 +303,10 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
               </button>
             ))}
           </div>
-          <div className="flex-1" />
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
             {totalDynamics >= 0
               ? <TrendingUp className="w-5 h-5 text-emerald-500" />
               : <TrendingDown className="w-5 h-5 text-red-400" />}
@@ -300,17 +315,16 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             </span>
             <span className="text-[10px] text-gray-400">(exp.)</span>
           </div>
-        </div>
-        {/* vs Avg для Growth rate внутри карточки, выровнен вправо */}
-        {vsAvgGrowthRate !== null && (
-          <div className="flex justify-end mt-1">
+          
+          {/* vs Avg для Growth rate справа от значения */}
+          {vsAvgGrowthRate !== null && (
             <p className="text-[9px] text-gray-400">
-              vs Avg <span className={vsAvgGrowthRate >= 0 ? "text-emerald-500" : "text-red-400"}>
+              vs Avg <span className={getVsAvgColor(vsAvgGrowthRate, "growth")}>
                 {vsAvgGrowthRate >= 0 ? "+" : ""}{vsAvgGrowthRate}
               </span>
             </p>
-          </div>
-        )}
+          )}
+        </div>
       </Card>
 
       {/* Tabs */}
@@ -392,17 +406,13 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
                     const regionValue = payload.originalRegion;
                     const avgValue = payload.originalAvg;
                     
-                    // Форматируем значение в зависимости от типа метрики
                     let formattedRegion = regionValue;
                     let formattedAvg = avgValue;
                     
                     if (payload.subject === 'Top-3 Share') {
                       formattedRegion = `${regionValue}%`;
                       formattedAvg = `${avgValue}%`;
-                    } else if (payload.subject === 'Saturation') {
-                      formattedRegion = regionValue?.toFixed(1);
-                      formattedAvg = avgValue?.toFixed(1);
-                    } else if (payload.subject === 'Chain Density') {
+                    } else if (payload.subject === 'Saturation' || payload.subject === 'Chain Density') {
                       formattedRegion = regionValue?.toFixed(1);
                       formattedAvg = avgValue?.toFixed(1);
                     }
