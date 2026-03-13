@@ -41,7 +41,7 @@ const calculateCountryMax = () => {
   // В реальном приложении нужно передавать реальные максимумы по всем регионам
   return {
     saturation: 35, // Максимальная насыщенность (ресторанов на 100K)
-    top3Share: 100, // Максимальная доля топ-3 (100%)
+    topShare: 100, // Максимальная доля топ-N (100%)
     chainDensity: 45, // Максимальная плотность сетей (ресторанов на 1000 км²)
     growthRate: 60 // Максимальный рост (в абсолютных цифрах)
   };
@@ -70,6 +70,14 @@ const getPercentDiff = (value: number, avg: number): string => {
   return `${roundedDiff > 0 ? '+' : ''}${roundedDiff}%`;
 };
 
+// Функция для определения названия метрики концентрации
+const getConcentrationLabel = (totalBrands: number): string => {
+  if (totalBrands >= 4) return "Top-3 share";
+  if (totalBrands === 3) return "Top-2 share";
+  if (totalBrands === 2) return "Top-1 share";
+  return "Share"; // fallback
+};
+
 const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionInfoPanelProps) => {
   const [period, setPeriod] = useState<Period>("quarter");
   const [activeTab, setActiveTab] = useState<TabType>("brands");
@@ -93,9 +101,22 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
       ? Math.round((totalPoints / area) * 1000 * 10) / 10
       : null;
   
-  const top3Brands = regionStats?.brands.slice(0, 3) ?? [];
-  const top3Share =
-    totalPoints > 0 ? Math.round((top3Brands.reduce((s, b) => s + b.count, 0) / totalPoints) * 100) : 0;
+  // Динамическая метрика концентрации в зависимости от количества брендов
+  const totalBrandsInRegion = regionStats?.brands.length ?? 0;
+  const concentrationLabel = getConcentrationLabel(totalBrandsInRegion);
+  
+  // Определяем, сколько брендов берем для расчета концентрации
+  let topBrandsCount = 3;
+  if (totalBrandsInRegion === 3) topBrandsCount = 2;
+  else if (totalBrandsInRegion === 2) topBrandsCount = 1;
+  else if (totalBrandsInRegion < 2) topBrandsCount = 0;
+  
+  const topBrands = regionStats?.brands.slice(0, topBrandsCount) ?? [];
+  const topShare =
+    totalPoints > 0 && topBrandsCount > 0
+      ? Math.round((topBrands.reduce((s, b) => s + b.count, 0) / totalPoints) * 100)
+      : 0;
+  
   const totalDynamics =
     regionStats?.brands.reduce((sum, b) => sum + getBrandDynamics(selectedRegion, b.brand, period), 0) ?? 0;
 
@@ -103,22 +124,23 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   const countryMax = calculateCountryMax();
   
   // Средние значения для vs Avg (в реальном приложении нужно передавать)
+  // Для концентрации используем среднее по стране для топ-3, но в реальности нужно адаптировать
   const countryAvg = {
     saturation: 12.5,
-    top3Share: 65,
+    topShare: 65, // Это среднее для топ-3, для других случаев нужно пересчитывать
     chainDensity: 8.3,
     growthRate: 15
   };
   
   // Разница с средним по стране (для отображения vs Avg)
   const vsAvgSaturation = saturationIndex !== null ? Math.round((saturationIndex - countryAvg.saturation) * 10) / 10 : null;
-  const vsAvgTop3Share = top3Share > 0 ? Math.round(top3Share - countryAvg.top3Share) : null;
+  const vsAvgTopShare = topShare > 0 ? Math.round(topShare - countryAvg.topShare) : null;
   const vsAvgChainDensity = chainDensity !== null ? Math.round((chainDensity - countryAvg.chainDensity) * 10) / 10 : null;
   const vsAvgGrowthRate = totalDynamics - countryAvg.growthRate;
 
   // Процентные разницы для тултипа
   const percentDiffSaturation = saturationIndex !== null ? getPercentDiff(saturationIndex, countryAvg.saturation) : "";
-  const percentDiffTop3 = top3Share > 0 ? getPercentDiff(top3Share, countryAvg.top3Share) : "";
+  const percentDiffTop = topShare > 0 ? getPercentDiff(topShare, countryAvg.topShare) : "";
   const percentDiffChain = chainDensity !== null ? getPercentDiff(chainDensity, countryAvg.chainDensity) : "";
   const percentDiffGrowth = getPercentDiff(totalDynamics, countryAvg.growthRate);
 
@@ -130,7 +152,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   // Инвертированная насыщенность для оси Saturation (чем меньше, тем лучше)
   const invertedRegionSaturation = 1 - normalizedRegionSaturation;
   
-  const normalizedRegionTop3 = top3Share / countryMax.top3Share;
+  const normalizedRegionTop = topShare / countryMax.topShare;
   const normalizedRegionChain = chainDensity !== null 
     ? chainDensity / countryMax.chainDensity
     : 0;
@@ -140,7 +162,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   const normalizedAvgSaturation = countryAvg.saturation / countryMax.saturation;
   const invertedAvgSaturation = 1 - normalizedAvgSaturation;
   
-  const normalizedAvgTop3 = countryAvg.top3Share / countryMax.top3Share;
+  const normalizedAvgTop = countryAvg.topShare / countryMax.topShare;
   const normalizedAvgChain = countryAvg.chainDensity / countryMax.chainDensity;
   const normalizedAvgGrowth = Math.abs(countryAvg.growthRate) / countryMax.growthRate;
 
@@ -156,13 +178,13 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
       tooltipLabel: 'Saturation Index'
     },
     {
-      subject: 'Top-3 Share',
-      region: normalizedRegionTop3,
-      country: normalizedAvgTop3,
-      originalRegion: top3Share,
-      originalCountry: countryAvg.top3Share,
-      percentDiff: percentDiffTop3,
-      tooltipLabel: 'Top-3 Share'
+      subject: concentrationLabel,
+      region: normalizedRegionTop,
+      country: normalizedAvgTop,
+      originalRegion: topShare,
+      originalCountry: countryAvg.topShare,
+      percentDiff: percentDiffTop,
+      tooltipLabel: concentrationLabel
     },
     {
       subject: 'Chain Density',
@@ -227,34 +249,34 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
 
       {/* Metrics — два ряда по две метрики */}
       <div className="mx-2 mt-2 flex flex-col gap-2 flex-shrink-0">
-        {/* Первый ряд: Locations + Top-3 share */}
+        {/* Первый ряд: Locations + концентрация */}
         <div className="grid grid-cols-2 gap-2">
           {/* Locations — синее значение */}
           <div className="bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
             <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Locations</p>
             <div className="flex items-end justify-between">
               <p className="text-3xl font-black text-blue-600 leading-none">{totalPoints}</p>
-              {vsAvgTop3Share !== null && (
+              {vsAvgTopShare !== null && (
                 <p className="text-[9px] text-gray-400 mb-1">
-                  vs Avg <span className={getVsAvgColor(vsAvgTop3Share, "top3")}>
-                    {vsAvgTop3Share >= 0 ? "+" : ""}{vsAvgTop3Share}
+                  vs Avg <span className={getVsAvgColor(vsAvgTopShare, "top")}>
+                    {vsAvgTopShare >= 0 ? "+" : ""}{vsAvgTopShare}
                   </span>
                 </p>
               )}
             </div>
           </div>
           
-          {/* Top-3 share */}
+          {/* Концентрация (динамическое название) */}
           <div className="bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
-            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Top-3 share</p>
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">{concentrationLabel}</p>
             <div className="flex items-end justify-between">
               <p className="text-3xl font-black text-gray-900 leading-none">
-                {totalPoints > 0 ? `${top3Share}%` : "—"}
+                {totalPoints > 0 ? `${topShare}%` : "—"}
               </p>
-              {vsAvgTop3Share !== null && (
+              {vsAvgTopShare !== null && (
                 <p className="text-[9px] text-gray-400 mb-1">
-                  vs Avg <span className={getVsAvgColor(vsAvgTop3Share, "top3")}>
-                    {vsAvgTop3Share >= 0 ? "+" : ""}{vsAvgTop3Share}%
+                  vs Avg <span className={getVsAvgColor(vsAvgTopShare, "top")}>
+                    {vsAvgTopShare >= 0 ? "+" : ""}{vsAvgTopShare}%
                   </span>
                 </p>
               )}
@@ -456,7 +478,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
                     
                     // Форматируем значение в зависимости от типа метрики
                     let formattedValue = regionValue;
-                    if (payload.subject === 'Top-3 Share') {
+                    if (payload.subject === concentrationLabel || payload.subject === 'Top-3 share' || payload.subject === 'Top-2 share' || payload.subject === 'Top-1 share') {
                       formattedValue = `${regionValue}%`;
                     } else if (payload.subject === 'Saturation' || payload.subject === 'Chain Density') {
                       formattedValue = regionValue?.toFixed(1);
