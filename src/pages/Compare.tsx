@@ -191,8 +191,8 @@ const Compare = () => {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white">
 
-      {/* Navbar */}
-      <nav className="w-12 flex-shrink-0 bg-[#1e2128] flex flex-col items-center py-3 gap-1 z-20">
+      {/* Navbar - now on the right side */}
+      <nav className="w-12 flex-shrink-0 bg-[#1e2128] flex flex-col items-center py-3 gap-1 z-20 order-2">
         <div className="w-8 h-8 mb-4 flex items-center justify-center">
           <svg viewBox="0 0 107.57 137.26" className="w-5 h-5" fill="#9a9d9e">
             <path d="M77,60.2c17.98,6.17,31.89-14.53,21.26-30.29C89.01,16.2,73.41,7.2,55.72,7.2C27.33,7.2,4.31,30.4,4.31,59.03c0,33.56,38.08,63.1,48.7,70.68c1.65,1.18,3.78,1.18,5.43,0c5.79-4.13,19.74-14.8,31.24-29.08c8.85-11,3.92-26.29-8.16-33.59c-7.96-4.81-19.96-4.13-23.53,4.45c-1.76,4.23-1.72,8.9,2.87,13.5C71.27,95.39,40.3,98.85,40.3,74.58c0-19.82,21.52-22.05,28.92-17.89C71.88,58.18,74.48,59.33,77,60.2z" />
@@ -219,8 +219,55 @@ const Compare = () => {
         </button>
       </nav>
 
-      {/* Left panel */}
-      <aside className="w-[300px] flex-shrink-0 border-r border-gray-200 bg-white flex flex-col">
+      {/* Map - now on the left side */}
+      <main className="flex-1 relative order-1">
+        <div ref={mapRef} className="w-full h-full" />
+
+        {/* Map legend */}
+        <div className="absolute bottom-5 right-5 z-[1000] bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Legend</h4>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
+              <span className="text-xs text-gray-600">{brandA}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
+              <span className="text-xs text-gray-600">{brandB}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Insights — now positioned to avoid overlapping with navbar on the right */}
+        {insights.length > 0 && (
+          <div className="absolute bottom-4 left-4 z-[1000] bg-white border border-gray-200 rounded-lg shadow-sm p-3.5"
+               style={{ right: 170 }}>
+            <div className="flex items-center gap-2 mb-2">
+              <Lightbulb className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Insights</h4>
+            </div>
+            <div className="space-y-1">
+              {insights.map((item, i) => (
+                <p key={i} className={`text-xs ${item.bold ? "text-gray-800 font-medium" : "text-gray-500"}`}>
+                  {item.bold ? "· " : "· "}{item.text}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-[1000]">
+            <div className="flex items-center gap-3">
+              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm font-medium text-gray-600">Loading data...</span>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Right panel - now on the right side before navbar */}
+      <aside className="w-[300px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col order-3">
 
         {/* Header */}
         <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
@@ -374,53 +421,6 @@ const Compare = () => {
           </Table>
         </div>
       </aside>
-
-      {/* Map */}
-      <main className="flex-1 relative">
-        <div ref={mapRef} className="w-full h-full" />
-
-        {/* Map legend */}
-        <div className="absolute bottom-5 right-5 z-[1000] bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
-          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Legend</h4>
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
-              <span className="text-xs text-gray-600">{brandA}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
-              <span className="text-xs text-gray-600">{brandB}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Insights — wider panel: left-4, right-5 (just clears legend) */}
-        {insights.length > 0 && (
-          <div className="absolute bottom-4 left-4 z-[1000] bg-white border border-gray-200 rounded-lg shadow-sm p-3.5"
-               style={{ right: 170 }}>
-            <div className="flex items-center gap-2 mb-2">
-              <Lightbulb className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
-              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Insights</h4>
-            </div>
-            <div className="space-y-1">
-              {insights.map((item, i) => (
-                <p key={i} className={`text-xs ${item.bold ? "text-gray-800 font-medium" : "text-gray-500"}`}>
-                  {item.bold ? "· " : "· "}{item.text}
-                </p>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-[1000]">
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm font-medium text-gray-600">Loading data...</span>
-            </div>
-          </div>
-        )}
-      </main>
     </div>
   );
 };
