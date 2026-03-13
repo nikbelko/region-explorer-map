@@ -6,9 +6,6 @@ import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
 import { point as turfPoint } from "@turf/helpers";
 import { Brand, BRANDS, BRAND_COLOR_MAP } from "@/data/regions";
 import { useRestaurantData } from "@/hooks/useRestaurantData";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
 
 const BRAND_A_COLOR = "#3B82F6";
 const BRAND_B_COLOR = "#F97316";
@@ -56,21 +53,10 @@ const NavBtn = ({
   </div>
 );
 
-/**
- * BrandSelector — styled like Country Explorer filter dropdowns.
- * Key fix: dropdown is rendered in a portal-like fixed div so it never gets
- * clipped by overflow:hidden on parent cards/panels.
- */
 const BrandSelector = ({
-  label,
-  labelColor,
-  value,
-  onChange,
+  label, labelColor, value, onChange,
 }: {
-  label: string;
-  labelColor: string;
-  value: Brand;
-  onChange: (b: Brand) => void;
+  label: string; labelColor: string; value: Brand; onChange: (b: Brand) => void;
 }) => {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -78,13 +64,12 @@ const BrandSelector = ({
 
   const openDropdown = () => {
     if (btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect();
-      setDropPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+      const r = btnRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 4, left: r.left, width: r.width });
     }
     setOpen(true);
   };
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
     const handler = () => setOpen(false);
@@ -96,13 +81,10 @@ const BrandSelector = ({
 
   return (
     <div className="px-3 py-2.5 border-b border-[#d1d5db] last:border-0">
-      {/* Label row */}
       <div className="flex items-center gap-2 mb-1.5">
         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: labelColor }} />
         <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</span>
       </div>
-
-      {/* Trigger button */}
       <button
         ref={btnRef}
         onClick={(e) => { e.stopPropagation(); open ? setOpen(false) : openDropdown(); }}
@@ -110,51 +92,25 @@ const BrandSelector = ({
       >
         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: brandColor }} />
         <span className="flex-1 text-left">{value}</span>
-        <svg
-          className="w-3 h-3 text-gray-400 flex-shrink-0"
-          fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
-          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
-        >
+        <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-
-      {/* Portal dropdown — fixed position, always on top */}
       {open && (
         <div
           onMouseDown={(e) => e.stopPropagation()}
-          style={{
-            position: "fixed",
-            top: dropPos.top,
-            left: dropPos.left,
-            width: dropPos.width,
-            zIndex: 9999,
-            background: "#fff",
-            border: "1px solid #d1d5db",
-            borderRadius: "6px",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
-            maxHeight: "220px",
-            overflowY: "auto",
-          }}
+          style={{ position: "fixed", top: dropPos.top, left: dropPos.left, width: dropPos.width, zIndex: 9999, background: "#fff", border: "1px solid #d1d5db", borderRadius: "6px", boxShadow: "0 4px 16px rgba(0,0,0,0.12)", maxHeight: "220px", overflowY: "auto" }}
         >
           {BRANDS.map((b) => {
             const color = (BRAND_COLOR_MAP as Record<string, string>)[b];
             const isSelected = b === value;
             return (
-              <div
-                key={b}
-                onClick={() => { onChange(b); setOpen(false); }}
-                className={`flex items-center gap-3 px-3 py-2 text-xs border-b border-gray-50 last:border-0 cursor-pointer transition-colors ${
-                  isSelected ? "bg-blue-50/80 text-gray-900 font-semibold" : "hover:bg-gray-50 text-gray-700"
-                }`}
+              <div key={b} onClick={() => { onChange(b); setOpen(false); }}
+                className={`flex items-center gap-3 px-3 py-2 text-xs border-b border-gray-50 last:border-0 cursor-pointer transition-colors ${isSelected ? "bg-blue-50/80 text-gray-900 font-semibold" : "hover:bg-gray-50 text-gray-700"}`}
               >
                 <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                 <span className="flex-1">{b}</span>
-                {isSelected && (
-                  <svg className="w-3 h-3 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                )}
+                {isSelected && <svg className="w-3 h-3 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
               </div>
             );
           })}
@@ -182,30 +138,26 @@ const Compare = () => {
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
-    const map = L.map(mapRef.current, { center: [52.5, -1.5], zoom: 6, zoomControl: true, attributionControl: true });
+    const map = L.map(mapRef.current, { center: [52.5, -1.5], zoom: 6 });
     L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-      subdomains: "abcd", maxZoom: 19,
+      attribution: '&copy; OSM &copy; CARTO', subdomains: "abcd", maxZoom: 19,
     }).addTo(map);
     mapInstance.current = map;
     markerLayerA.current = L.layerGroup().addTo(map);
     markerLayerB.current = L.layerGroup().addTo(map);
-    fetch("/data/uk-regions.geojson")
-      .then((r) => r.json())
-      .then((data) => {
-        setRegionsData(data);
-        const geoLayer = L.geoJSON(data, {
-          style: () => ({ color: "#ffffff", weight: 1.5, fillColor: "#e5e7eb", fillOpacity: 0.5 }),
-          onEachFeature: (feature, layer) => {
-            const name = feature?.properties?.ITL125NM || `Region ${feature?.id || "unknown"}`;
-            (layer as any)._regionName = name;
-            layer.on("click", () => setSelectedRegion(name));
-          },
-        }).addTo(map);
-        layersRef.current = geoLayer;
-        setMapLoading(false);
-      })
-      .catch(() => setMapLoading(false));
+    fetch("/data/uk-regions.geojson").then((r) => r.json()).then((data) => {
+      setRegionsData(data);
+      const geoLayer = L.geoJSON(data, {
+        style: () => ({ color: "#ffffff", weight: 1.5, fillColor: "#e5e7eb", fillOpacity: 0.5 }),
+        onEachFeature: (feature, layer) => {
+          const name = feature?.properties?.ITL125NM || `Region ${feature?.id || "unknown"}`;
+          (layer as any)._regionName = name;
+          layer.on("click", () => setSelectedRegion(name));
+        },
+      }).addTo(map);
+      layersRef.current = geoLayer;
+      setMapLoading(false);
+    }).catch(() => setMapLoading(false));
     return () => { map.remove(); mapInstance.current = null; };
   }, []);
 
@@ -214,22 +166,18 @@ const Compare = () => {
     markerLayerA.current.clearLayers();
     markerLayerB.current.clearLayers();
     restaurants.forEach((r) => {
-      if (r.brand === brandA) {
-        const m = L.circleMarker([r.lat, r.lng], { radius: 5, fillColor: BRAND_A_COLOR, color: "#ffffff", weight: 1, fillOpacity: 0.9 });
-        m.bindTooltip(`<strong style="color:${BRAND_A_COLOR}">${r.brand}</strong><br/>${r.name}`, { direction: "top", offset: [0, -6] });
-        markerLayerA.current!.addLayer(m);
-      } else if (r.brand === brandB) {
-        const m = L.circleMarker([r.lat, r.lng], { radius: 5, fillColor: BRAND_B_COLOR, color: "#ffffff", weight: 1, fillOpacity: 0.9 });
-        m.bindTooltip(`<strong style="color:${BRAND_B_COLOR}">${r.brand}</strong><br/>${r.name}`, { direction: "top", offset: [0, -6] });
-        markerLayerB.current!.addLayer(m);
-      }
+      const iA = r.brand === brandA, iB = r.brand === brandB;
+      if (!iA && !iB) return;
+      const color = iA ? BRAND_A_COLOR : BRAND_B_COLOR;
+      const m = L.circleMarker([r.lat, r.lng], { radius: 5, fillColor: color, color: "#ffffff", weight: 1, fillOpacity: 0.9 });
+      m.bindTooltip(`<strong style="color:${color}">${r.brand}</strong><br/>${r.name}`, { direction: "top", offset: [0, -6] });
+      (iA ? markerLayerA : markerLayerB).current!.addLayer(m);
     });
   }, [brandA, brandB, restaurants]);
 
   const comparisons = useMemo<RegionComparison[]>(() => {
     if (!regionsData || restaurants.length === 0) return [];
-    const results: RegionComparison[] = [];
-    for (const feature of regionsData.features || []) {
+    return (regionsData.features || []).map((feature: any) => {
       const name = feature?.properties?.ITL125NM || `Region ${feature?.id || "unknown"}`;
       let countA = 0, countB = 0;
       for (const r of restaurants) {
@@ -238,11 +186,10 @@ const Compare = () => {
           if (booleanPointInPolygon(turfPoint([r.lng, r.lat]), feature)) {
             if (r.brand === brandA) countA++; else countB++;
           }
-        } catch { /* skip */ }
+        } catch { /**/ }
       }
-      results.push({ region: name, countA, countB, leader: countA > countB ? "A" : countB > countA ? "B" : "tie" });
-    }
-    return results.sort((a, b) => (b.countA + b.countB) - (a.countA + a.countB));
+      return { region: name, countA, countB, leader: countA > countB ? "A" : countB > countA ? "B" : "tie" as "A" | "B" | "tie" };
+    }).sort((a: RegionComparison, b: RegionComparison) => (b.countA + b.countB) - (a.countA + a.countB));
   }, [regionsData, restaurants, brandA, brandB]);
 
   useEffect(() => {
@@ -270,41 +217,37 @@ const Compare = () => {
   const totalDelta = comparisons.reduce((s, c) => s + getDelta(c.region), 0);
 
   const insights = useMemo(() => {
-    if (comparisons.length === 0) return [];
-    const result: string[] = [];
+    if (!comparisons.length) return [];
+    const res: string[] = [];
     const aWins = comparisons.filter((c) => c.leader === "A").length;
-    result.push(`${brandA} leads in ${aWins} of ${comparisons.length} regions`);
+    res.push(`${brandA} leads in ${aWins} of ${comparisons.length} regions`);
     const bWins = comparisons.filter((c) => c.leader === "B");
-    if (bWins.length > 0) {
+    if (bWins.length) {
       const shown = bWins.slice(0, 2).map((c) => c.region).join(", ");
-      const more = bWins.length > 2 ? ` +${bWins.length - 2} more` : "";
-      result.push(`${brandB} leads in: ${shown}${more}`);
-    } else {
-      result.push(`${brandB} leads in no regions`);
-    }
-    let maxGap = 0, maxGapRegion = "", maxGapWinner = "";
+      res.push(`${brandB} leads in: ${shown}${bWins.length > 2 ? ` +${bWins.length - 2} more` : ""}`);
+    } else res.push(`${brandB} leads in no regions`);
+    let maxGap = 0, maxGapR = "", maxGapW = "";
     for (const c of comparisons) {
-      const gap = Math.abs(c.countA - c.countB);
-      if (gap > maxGap) { maxGap = gap; maxGapRegion = c.region; maxGapWinner = c.countA > c.countB ? brandA : brandB; }
+      const g = Math.abs(c.countA - c.countB);
+      if (g > maxGap) { maxGap = g; maxGapR = c.region; maxGapW = c.countA > c.countB ? brandA : brandB; }
     }
-    if (maxGap > 0) result.push(`Biggest gap: ${maxGapWinner} leads by ${maxGap} in ${maxGapRegion}`);
+    if (maxGap) res.push(`Biggest gap: ${maxGapW} leads by ${maxGap} in ${maxGapR}`);
     const avgA = (comparisons.reduce((s, c) => s + getBrandDynamics(c.region, brandA, period), 0) / comparisons.length).toFixed(1);
     const avgB = (comparisons.reduce((s, c) => s + getBrandDynamics(c.region, brandB, period), 0) / comparisons.length).toFixed(1);
-    result.push(`This ${PERIOD_LABELS[period].toLowerCase()}: ${brandA} avg ${Number(avgA) >= 0 ? "+" : ""}${avgA} vs ${brandB} ${Number(avgB) >= 0 ? "+" : ""}${avgB}`);
-    return result;
+    res.push(`This ${PERIOD_LABELS[period].toLowerCase()}: ${brandA} avg ${Number(avgA) >= 0 ? "+" : ""}${avgA} vs ${brandB} ${Number(avgB) >= 0 ? "+" : ""}${avgB}`);
+    return res;
   }, [comparisons, brandA, brandB, period]);
 
   const isLoading = dataLoading || mapLoading;
 
+  /* Fixed column widths to prevent layout shift on delta change */
+  const colW = { region: 130, a: 68, b: 68, leader: 100, delta: 48 };
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white">
-
-      {/* Navbar */}
       <nav className="w-12 flex-shrink-0 bg-[#1e2128] flex flex-col items-center py-3 gap-1" style={{ zIndex: 9998, position: "relative" }}>
         <div className="w-8 h-8 mb-4 flex items-center justify-center">
-          <svg viewBox="0 0 107.57 137.26" className="w-5 h-5" fill="#9a9d9e">
-            <path d="M77,60.2c17.98,6.17,31.89-14.53,21.26-30.29C89.01,16.2,73.41,7.2,55.72,7.2C27.33,7.2,4.31,30.4,4.31,59.03c0,33.56,38.08,63.1,48.7,70.68c1.65,1.18,3.78,1.18,5.43,0c5.79-4.13,19.74-14.8,31.24-29.08c8.85-11,3.92-26.29-8.16-33.59c-7.96-4.81-19.96-4.13-23.53,4.45c-1.76,4.23-1.72,8.9,2.87,13.5C71.27,95.39,40.3,98.85,40.3,74.58c0-19.82,21.52-22.05,28.92-17.89C71.88,58.18,74.48,59.33,77,60.2z" />
-          </svg>
+          <svg viewBox="0 0 107.57 137.26" className="w-5 h-5" fill="#9a9d9e"><path d="M77,60.2c17.98,6.17,31.89-14.53,21.26-30.29C89.01,16.2,73.41,7.2,55.72,7.2C27.33,7.2,4.31,30.4,4.31,59.03c0,33.56,38.08,63.1,48.7,70.68c1.65,1.18,3.78,1.18,5.43,0c5.79-4.13,19.74-14.8,31.24-29.08c8.85-11,3.92-26.29-8.16-33.59c-7.96-4.81-19.96-4.13-23.53,4.45c-1.76,4.23-1.72,8.9,2.87,13.5C71.27,95.39,40.3,98.85,40.3,74.58c0-19.82,21.52-22.05,28.92-17.89C71.88,58.18,74.48,59.33,77,60.2z" /></svg>
         </div>
         <NavBtn icon={<Map className="w-4 h-4" />} label="Country Explorer" onClick={() => navigate("/")} />
         <NavBtn icon={<BarChart2 className="w-4 h-4" />} label="Compare brands" active />
@@ -315,14 +258,10 @@ const Compare = () => {
         <NavBtn icon={<Settings className="w-4 h-4" />} label="Settings" />
       </nav>
 
-      {/* Map */}
       <main className="flex-1 relative overflow-hidden">
         <div ref={mapRef} className="w-full h-full" />
-
-        {/* Insights — centred, 1 column */}
         {insights.length > 0 && (
-          <div
-            className="absolute bottom-5 z-[1000] bg-white border border-gray-200 rounded-lg shadow-sm p-3"
+          <div className="absolute bottom-5 z-[1000] bg-white border border-gray-200 rounded-lg shadow-sm p-3"
             style={{ left: "50%", transform: "translateX(-50%)", width: "520px", maxWidth: "calc(100% - 32px)" }}
           >
             <div className="flex items-center gap-2 mb-2">
@@ -330,13 +269,10 @@ const Compare = () => {
               <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Insights</h4>
             </div>
             <div className="space-y-1">
-              {insights.map((text, i) => (
-                <p key={i} className="text-xs text-gray-600">• {text}</p>
-              ))}
+              {insights.map((t, i) => <p key={i} className="text-xs text-gray-600">• {t}</p>)}
             </div>
           </div>
         )}
-
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-[1000]">
             <div className="flex items-center gap-3">
@@ -347,45 +283,30 @@ const Compare = () => {
         )}
       </main>
 
-      {/* Right panel — 460px, overflow visible so dropdowns escape */}
-      <aside
-        className="flex-shrink-0 border-l border-[#d1d5db] bg-[#f0f2f5] flex flex-col"
-        style={{ width: "460px", overflow: "visible", position: "relative", zIndex: 20 }}
-      >
-        {/* Header */}
+      {/* Right panel */}
+      <aside className="flex-shrink-0 border-l border-[#d1d5db] bg-[#f0f2f5] flex flex-col" style={{ width: "460px", overflow: "visible", position: "relative", zIndex: 20 }}>
         <div className="px-4 py-3 border-b border-[#d1d5db] flex-shrink-0">
-          <button
-            onClick={() => navigate("/")}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 transition-colors mb-2"
-          >
-            <ArrowLeft className="w-3 h-3" />
-            Country Explorer
+          <button onClick={() => navigate("/")} className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 transition-colors mb-2">
+            <ArrowLeft className="w-3 h-3" />Country Explorer
           </button>
           <h1 className="text-sm font-semibold text-gray-900">Brand Comparison</h1>
           <p className="text-xs text-gray-400 mt-0.5">Great Britain · Head-to-head</p>
         </div>
 
-        {/* Brand selectors — white card, overflow visible */}
-        <div
-          className="mx-2 mt-2 bg-white rounded-lg border border-[#e5e7eb] flex-shrink-0"
-          style={{ overflow: "visible" }}
-        >
+        {/* Brand selectors */}
+        <div className="mx-2 mt-2 bg-white rounded-lg border border-[#e5e7eb] flex-shrink-0" style={{ overflow: "visible" }}>
           <BrandSelector label="Brand A" labelColor={BRAND_A_COLOR} value={brandA} onChange={setBrandA} />
           <BrandSelector label="Brand B" labelColor={BRAND_B_COLOR} value={brandB} onChange={setBrandB} />
         </div>
 
-        {/* Table card — scrollable */}
+        {/* Table — fixed-layout to prevent column shift */}
         <div className="mx-2 mt-2 mb-2 bg-white rounded-lg border border-[#e5e7eb] overflow-hidden flex-1 flex flex-col min-h-0">
           <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 flex-shrink-0">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Regions</span>
             <div className="flex items-center gap-0.5">
               {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors ${
-                    period === p ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                  }`}
+                <button key={p} onClick={() => setPeriod(p)}
+                  className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors ${period === p ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
                 >
                   {PERIOD_LABELS[p]}
                 </button>
@@ -394,53 +315,58 @@ const Compare = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b border-gray-100 bg-gray-50">
-                  <TableHead className="text-[10px] h-8 px-3 font-semibold uppercase tracking-wider text-gray-400">Region</TableHead>
-                  <TableHead className="text-[10px] h-8 px-2 text-right font-semibold" style={{ color: BRAND_A_COLOR }}>{brandA}</TableHead>
-                  <TableHead className="text-[10px] h-8 px-2 text-right font-semibold" style={{ color: BRAND_B_COLOR }}>{brandB}</TableHead>
-                  <TableHead className="text-[10px] h-8 px-2 font-semibold uppercase tracking-wider text-gray-400">Leader</TableHead>
-                  <TableHead className="text-[10px] h-8 px-2 text-right font-semibold text-gray-400">Δ</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <table className="w-full table-fixed text-xs border-collapse">
+              <colgroup>
+                <col style={{ width: colW.region }} />
+                <col style={{ width: colW.a }} />
+                <col style={{ width: colW.b }} />
+                <col style={{ width: colW.leader }} />
+                <col style={{ width: colW.delta }} />
+              </colgroup>
+              <thead className="sticky top-0 bg-gray-50 border-b border-gray-100 z-10">
+                <tr>
+                  <th className="text-left px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Region</th>
+                  <th className="text-right px-2 py-2 text-[10px] font-semibold" style={{ color: BRAND_A_COLOR }}>{brandA}</th>
+                  <th className="text-right px-2 py-2 text-[10px] font-semibold" style={{ color: BRAND_B_COLOR }}>{brandB}</th>
+                  <th className="text-left px-2 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Leader</th>
+                  <th className="text-right px-2 py-2 text-[10px] font-semibold text-gray-400">Δ</th>
+                </tr>
+              </thead>
+              <tbody>
                 {comparisons.map((c) => {
                   const delta = getDelta(c.region);
                   const isSelected = selectedRegion === c.region;
                   return (
-                    <TableRow
-                      key={c.region}
+                    <tr key={c.region} onClick={() => setSelectedRegion(c.region)}
                       className={`border-b border-gray-50 cursor-pointer transition-colors ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
-                      onClick={() => setSelectedRegion(c.region)}
                     >
-                      <TableCell className="text-xs py-2 px-3 font-medium text-gray-700">{c.region}</TableCell>
-                      <TableCell className="text-xs py-2 px-2 text-right font-semibold" style={{ color: c.leader === "A" ? BRAND_A_COLOR : "#374151" }}>{c.countA}</TableCell>
-                      <TableCell className="text-xs py-2 px-2 text-right font-semibold" style={{ color: c.leader === "B" ? BRAND_B_COLOR : "#374151" }}>{c.countB}</TableCell>
-                      <TableCell className="text-xs py-2 px-2 font-medium" style={{ color: c.leader === "A" ? BRAND_A_COLOR : c.leader === "B" ? BRAND_B_COLOR : "#9ca3af" }}>
+                      <td className="px-3 py-2 font-medium text-gray-700 truncate">{c.region}</td>
+                      <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: c.leader === "A" ? BRAND_A_COLOR : "#374151" }}>{c.countA}</td>
+                      <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: c.leader === "B" ? BRAND_B_COLOR : "#374151" }}>{c.countB}</td>
+                      <td className="px-2 py-2 font-medium truncate" style={{ color: c.leader === "A" ? BRAND_A_COLOR : c.leader === "B" ? BRAND_B_COLOR : "#9ca3af" }}>
                         {c.leader === "tie" ? "—" : c.leader === "A" ? brandA : brandB}
-                      </TableCell>
-                      <TableCell className={`text-xs py-2 px-2 text-right font-medium ${delta > 0 ? "text-emerald-600" : delta < 0 ? "text-red-500" : "text-gray-400"}`}>
+                      </td>
+                      <td className={`px-2 py-2 text-right font-medium tabular-nums ${delta > 0 ? "text-emerald-600" : delta < 0 ? "text-red-500" : "text-gray-400"}`}>
                         {delta > 0 ? "+" : ""}{delta}
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   );
                 })}
                 {comparisons.length > 0 && (
-                  <TableRow className="border-t-2 border-gray-200 bg-gray-50">
-                    <TableCell className="text-xs py-2 px-3 font-bold text-gray-700">Total</TableCell>
-                    <TableCell className="text-xs py-2 px-2 text-right font-bold" style={{ color: overallLeader === "A" ? BRAND_A_COLOR : "#374151" }}>{totalA}</TableCell>
-                    <TableCell className="text-xs py-2 px-2 text-right font-bold" style={{ color: overallLeader === "B" ? BRAND_B_COLOR : "#374151" }}>{totalB}</TableCell>
-                    <TableCell className="text-xs py-2 px-2 font-bold" style={{ color: overallLeader === "A" ? BRAND_A_COLOR : overallLeader === "B" ? BRAND_B_COLOR : "#374151" }}>
+                  <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold">
+                    <td className="px-3 py-2 text-gray-700">Total</td>
+                    <td className="px-2 py-2 text-right tabular-nums" style={{ color: overallLeader === "A" ? BRAND_A_COLOR : "#374151" }}>{totalA}</td>
+                    <td className="px-2 py-2 text-right tabular-nums" style={{ color: overallLeader === "B" ? BRAND_B_COLOR : "#374151" }}>{totalB}</td>
+                    <td className="px-2 py-2 truncate" style={{ color: overallLeader === "A" ? BRAND_A_COLOR : overallLeader === "B" ? BRAND_B_COLOR : "#374151" }}>
                       {overallLeader === "tie" ? "—" : overallLeader === "A" ? brandA : brandB}
-                    </TableCell>
-                    <TableCell className={`text-xs py-2 px-2 text-right font-bold ${totalDelta > 0 ? "text-emerald-600" : totalDelta < 0 ? "text-red-500" : "text-gray-400"}`}>
+                    </td>
+                    <td className={`px-2 py-2 text-right tabular-nums ${totalDelta > 0 ? "text-emerald-600" : totalDelta < 0 ? "text-red-500" : "text-gray-400"}`}>
                       {totalDelta > 0 ? "+" : ""}{totalDelta}
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 )}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
         </div>
       </aside>
