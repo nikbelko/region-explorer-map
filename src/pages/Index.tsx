@@ -71,14 +71,16 @@ const NavBtn = ({
 
 const Sep = () => <span className="text-gray-300 text-xs select-none mx-0.5">·</span>;
 
-// Обычный серый чип — без жирного шрифта
+// Чип как у "Competitive Intelligence" — серый текст с точкой
 const InfoChip = ({ label }: { label: string }) => (
-  <span className="text-xs text-gray-400 font-normal select-none whitespace-nowrap">{label}</span>
+  <>
+    <span className="text-[11px] text-gray-400 font-normal select-none whitespace-nowrap">{label}</span>
+  </>
 );
 
-// Синий чип для выбранного региона
+// Синий чип для выбранного региона (оставляем как есть)
 const RegionChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
-  <span className="flex items-center gap-1 text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium border border-blue-100 select-none whitespace-nowrap">
+  <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium border border-blue-100 select-none whitespace-nowrap">
     {label}
     <button onClick={onRemove} className="hover:text-blue-800 ml-0.5 flex-shrink-0">
       <X className="w-2.5 h-2.5" />
@@ -90,8 +92,12 @@ const RegionChip = ({ label, onRemove }: { label: string; onRemove: () => void }
 const SidebarToggle = ({ isOpen, onClick }: { isOpen: boolean; onClick: () => void }) => (
   <button
     onClick={onClick}
-    className="absolute -right-3 top-1/2 transform -translate-y-1/2 w-6 h-12 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-r-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-white/90 transition-all z-50"
-    style={{ backdropFilter: "blur(4px)" }}
+    className="absolute left-[264px] top-1/2 transform -translate-y-1/2 -ml-3 w-6 h-12 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-r-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-white/90 transition-all z-50"
+    style={{ 
+      backdropFilter: "blur(4px)",
+      left: isOpen ? '264px' : '0px',
+      transition: 'left 0.2s ease'
+    }}
   >
     {isOpen ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
   </button>
@@ -220,13 +226,14 @@ const Index = () => {
       {/* ── Content column ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* TOP BAR — все элементы не жирные */}
+        {/* TOP BAR — все элементы в одном стиле */}
         <div
           className="bg-white border-b border-gray-200 flex items-center px-4 gap-1.5 flex-shrink-0"
           style={{ zIndex: 150, position: "relative", overflow: "visible", height: 44, paddingBottom: 2 }}
         >
           <span className="text-base font-bold text-blue-600 leading-none">Country Explorer</span>
-          <span className="text-[11px] text-gray-400 font-normal ml-0.5">· Competitive Intelligence</span>
+          <Sep />
+          <InfoChip label="Competitive Intelligence" />
           <Sep />
           <InfoChip label="Great Britain" />
           <Sep />
@@ -373,7 +380,7 @@ const Index = () => {
             </div>
           </aside>
 
-          {/* Кнопка сворачивания панели — поверх карты */}
+          {/* Кнопка сворачивания панели — теперь видима и поверх карты */}
           <SidebarToggle isOpen={filterPanelOpen} onClick={() => setFilterPanelOpen(!filterPanelOpen)} />
 
           {/* Map */}
