@@ -36,20 +36,38 @@ const Card = ({ children, className = "" }: { children: React.ReactNode; classNa
   <div className={`mx-2 mt-2 bg-white rounded-lg border border-[#e5e7eb] ${className}`}>{children}</div>
 );
 
-// Расчет средних показателей по всей стране
-const calculateCountryAverages = (regionStats: RegionStats | null, allRegionsStats?: Record<string, RegionStats>) => {
-  // Если нет данных по всем регионам, используем заглушки
+// Расчет средних показателей по всей стране и мин/макс для нормализации
+const calculateCountryStats = (regionStats: RegionStats | null, allRegionsStats?: Record<string, RegionStats>) => {
   // В реальном приложении нужно передавать статистику по всем регионам
-  const mockAvgSaturation = 12.5;
-  const mockAvgTop3Share = 65;
-  const mockAvgChainDensity = 8.3;
-  const mockAvgGrowthRate = 15;
+  // Сейчас используем заглушки, расширяя диапазон для демонстрации эффекта
+  
+  // Предполагаем, что по всем регионам Great Britain:
+  // Saturation Index: мин 5, макс 25, среднее 12.5
+  // Top-3 Share: мин 45%, макс 85%, среднее 65%
+  // Chain Density: мин 3, макс 18, среднее 8.3
+  // Growth Rate: мин -20, макс +50, среднее +15
   
   return {
-    saturationIndex: mockAvgSaturation,
-    top3Share: mockAvgTop3Share,
-    chainDensity: mockAvgChainDensity,
-    growthRate: mockAvgGrowthRate
+    saturation: {
+      min: 5,
+      max: 25,
+      avg: 12.5
+    },
+    top3Share: {
+      min: 45,
+      max: 85,
+      avg: 65
+    },
+    chainDensity: {
+      min: 3,
+      max: 18,
+      avg: 8.3
+    },
+    growthRate: {
+      min: -20,
+      max: 50,
+      avg: 15
+    }
   };
 };
 
@@ -84,52 +102,89 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   const totalDynamics =
     regionStats?.brands.reduce((sum, b) => sum + getBrandDynamics(selectedRegion, b.brand, period), 0) ?? 0;
 
-  // Средние показатели по стране
-  const countryAvg = calculateCountryAverages(regionStats);
+  // Статистика по стране для нормализации
+  const countryStats = calculateCountryStats(regionStats);
   
-  // Разница с средним по стране
-  const vsAvgSaturation = saturationIndex !== null ? Math.round((saturationIndex - countryAvg.saturationIndex) * 10) / 10 : null;
-  const vsAvgTop3Share = top3Share > 0 ? Math.round(top3Share - countryAvg.top3Share) : null;
-  const vsAvgChainDensity = chainDensity !== null ? Math.round((chainDensity - countryAvg.chainDensity) * 10) / 10 : null;
-  const vsAvgGrowthRate = totalDynamics - countryAvg.growthRate;
+  // Разница с средним по стране (для отображения vs Avg)
+  const vsAvgSaturation = saturationIndex !== null ? Math.round((saturationIndex - countryStats.saturation.avg) * 10) / 10 : null;
+  const vsAvgTop3Share = top3Share > 0 ? Math.round(top3Share - countryStats.top3Share.avg) : null;
+  const vsAvgChainDensity = chainDensity !== null ? Math.round((chainDensity - countryStats.chainDensity.avg) * 10) / 10 : null;
+  const vsAvgGrowthRate = totalDynamics - countryStats.growthRate.avg;
 
-  // Находим максимальные значения для нормализации (0-1)
-  const maxValues = {
-    saturation: Math.max(saturationIndex || 0, countryAvg.saturationIndex),
-    top3Share: 100, // Top-3 share уже в процентах 0-100
-    chainDensity: Math.max(chainDensity || 0, countryAvg.chainDensity),
-    growthRate: Math.max(Math.abs(totalDynamics), Math.abs(countryAvg.growthRate)) * 1.2 // Добавляем запас
+  // Функция нормализации Min-Max со смещением, где среднее = 0.5
+  const normalizeWithBenchmark = (value: number | null, metric: { min: number; max: number; avg: number }): number => {
+    if (value === null) return 0.5; // Если нет данных, ставим на средний уровень
+    
+    // Min-Max нормализация в диапазон 0-1
+    const minMaxNormalized = (value - metric.min) / (metric.max - metric.min);
+    
+    // Сдвигаем так, чтобы среднее стало 0.5
+    // Находим, где находится среднее в Min-Max шкале
+    const avgNormalized = (metric.avg - metric.min) / (metric.max - metric.min);
+    
+    // Сдвигаем и масштабируем, чтобы avgNormalized стал 0.5
+    // Если avgNormalized < 0.5, растягиваем нижнюю часть, если > 0.5, растягиваем верхнюю
+    if (minMaxNormalized <= avgNormalized) {
+      // Ниже среднего: маппим [min, avg] → [0, 0.5]
+      return (minMaxNormalized / avgNormalized) * 0.5;
+    } else {
+      // Выше среднего: маппим [avg, max] → [0.5, 1]
+      return 0.5 + ((minMaxNormalized - avgNormalized) / (1 - avgNormalized)) * 0.5;
+    }
   };
 
-  // Нормализованные данные для радарной диаграммы (значения от 0 до 1)
+  // Инвертированная нормализация для Saturation (чем меньше, тем лучше)
+  const normalizeInverted = (value: number | null, metric: { min: number; max: number; avg: number }): number => {
+    if (value === null) return 0.5;
+    
+    // Инвертируем значение: чем меньше исходное, тем больше становится
+    const invertedValue = metric.max - (value - metric.min);
+    const invertedMin = metric.min;
+    const invertedMax = metric.max;
+    const invertedAvg = metric.max - (metric.avg - metric.min);
+    
+    return normalizeWithBenchmark(invertedValue, {
+      min: invertedMin,
+      max: invertedMax,
+      avg: invertedAvg
+    });
+  };
+
+  // Нормализованные данные для радарной диаграммы
   const radarData = [
     {
       subject: 'Saturation',
-      region: saturationIndex ? saturationIndex / maxValues.saturation : 0,
-      country: countryAvg.saturationIndex / maxValues.saturation,
+      region: saturationIndex !== null 
+        ? normalizeInverted(saturationIndex, countryStats.saturation)
+        : 0.5,
+      country: 0.5, // Среднее по стране всегда в центре (0.5)
       originalRegion: saturationIndex,
-      originalCountry: countryAvg.saturationIndex,
+      originalCountry: countryStats.saturation.avg,
+      tooltipLabel: 'Saturation Index'
     },
     {
       subject: 'Top-3 Share',
-      region: top3Share / 100,
-      country: countryAvg.top3Share / 100,
+      region: normalizeWithBenchmark(top3Share, countryStats.top3Share),
+      country: 0.5,
       originalRegion: top3Share,
-      originalCountry: countryAvg.top3Share,
+      originalCountry: countryStats.top3Share.avg,
+      tooltipLabel: 'Top-3 Share'
     },
     {
       subject: 'Chain Density',
-      region: chainDensity ? chainDensity / maxValues.chainDensity : 0,
-      country: countryAvg.chainDensity / maxValues.chainDensity,
+      region: normalizeWithBenchmark(chainDensity, countryStats.chainDensity),
+      country: 0.5,
       originalRegion: chainDensity,
-      originalCountry: countryAvg.chainDensity,
+      originalCountry: countryStats.chainDensity.avg,
+      tooltipLabel: 'Chain Density'
     },
     {
       subject: 'Growth Rate',
-      region: Math.max(0, totalDynamics) / maxValues.growthRate, // Для радара используем положительные значения
-      country: Math.max(0, countryAvg.growthRate) / maxValues.growthRate,
+      region: normalizeWithBenchmark(totalDynamics, countryStats.growthRate),
+      country: 0.5,
       originalRegion: totalDynamics,
-      originalCountry: countryAvg.growthRate,
+      originalCountry: countryStats.growthRate.avg,
+      tooltipLabel: 'Growth Rate'
     },
   ];
 
@@ -380,16 +435,18 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
                   stroke="#9ca3af"
                   fill="#9ca3af"
                   fillOpacity={0.1}
+                  strokeDasharray="3 3"
                 />
                 <Tooltip 
                   contentStyle={{ fontSize: '10px', padding: '4px 8px' }}
                   itemStyle={{ fontSize: '10px' }}
                   formatter={(value: number, name: string, props: any) => {
                     // Показываем оригинальные значения в тултипе
+                    const payload = props.payload;
                     if (name === selectedRegion) {
-                      return [props.payload.originalRegion, name];
+                      return [`${payload.originalRegion}${payload.subject === 'Top-3 Share' ? '%' : ''}`, payload.tooltipLabel];
                     }
-                    return [props.payload.originalCountry, name];
+                    return [`${payload.originalCountry}${payload.subject === 'Top-3 Share' ? '%' : ''}`, 'Country Avg'];
                   }}
                 />
               </RadarChart>
@@ -405,6 +462,9 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
               <span className="text-[9px] text-gray-500">Country Avg</span>
             </div>
           </div>
+          <p className="text-[8px] text-gray-400 text-center mt-1">
+            *Saturation inverted: lower is better (further from center)
+          </p>
         </Card>
       )}
     </div>
