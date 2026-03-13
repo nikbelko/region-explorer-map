@@ -93,31 +93,43 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   const vsAvgChainDensity = chainDensity !== null ? Math.round((chainDensity - countryAvg.chainDensity) * 10) / 10 : null;
   const vsAvgGrowthRate = totalDynamics - countryAvg.growthRate;
 
-  // Данные для радарной диаграммы
+  // Находим максимальные значения для нормализации (0-1)
+  const maxValues = {
+    saturation: Math.max(saturationIndex || 0, countryAvg.saturationIndex),
+    top3Share: 100, // Top-3 share уже в процентах 0-100
+    chainDensity: Math.max(chainDensity || 0, countryAvg.chainDensity),
+    growthRate: Math.max(Math.abs(totalDynamics), Math.abs(countryAvg.growthRate)) * 1.2 // Добавляем запас
+  };
+
+  // Нормализованные данные для радарной диаграммы (значения от 0 до 1)
   const radarData = [
     {
       subject: 'Saturation',
-      region: saturationIndex || 0,
-      country: countryAvg.saturationIndex,
-      fullMark: Math.max(saturationIndex || 0, countryAvg.saturationIndex) * 1.5,
+      region: saturationIndex ? saturationIndex / maxValues.saturation : 0,
+      country: countryAvg.saturationIndex / maxValues.saturation,
+      originalRegion: saturationIndex,
+      originalCountry: countryAvg.saturationIndex,
     },
     {
       subject: 'Top-3 Share',
-      region: top3Share,
-      country: countryAvg.top3Share,
-      fullMark: 100,
+      region: top3Share / 100,
+      country: countryAvg.top3Share / 100,
+      originalRegion: top3Share,
+      originalCountry: countryAvg.top3Share,
     },
     {
       subject: 'Chain Density',
-      region: chainDensity || 0,
-      country: countryAvg.chainDensity,
-      fullMark: Math.max(chainDensity || 0, countryAvg.chainDensity) * 1.5,
+      region: chainDensity ? chainDensity / maxValues.chainDensity : 0,
+      country: countryAvg.chainDensity / maxValues.chainDensity,
+      originalRegion: chainDensity,
+      originalCountry: countryAvg.chainDensity,
     },
     {
       subject: 'Growth Rate',
-      region: totalDynamics,
-      country: countryAvg.growthRate,
-      fullMark: Math.max(totalDynamics, countryAvg.growthRate) * 1.5,
+      region: Math.max(0, totalDynamics) / maxValues.growthRate, // Для радара используем положительные значения
+      country: Math.max(0, countryAvg.growthRate) / maxValues.growthRate,
+      originalRegion: totalDynamics,
+      originalCountry: countryAvg.growthRate,
     },
   ];
 
@@ -168,34 +180,34 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         <div className="grid grid-cols-2 gap-2">
           {/* Locations — синее значение */}
           <div className="bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Locations</p>
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Locations</p>
+            <div className="flex items-end justify-between">
+              <p className="text-3xl font-black text-blue-600 leading-none">{totalPoints}</p>
               {vsAvgTop3Share !== null && (
-                <p className="text-[9px] text-gray-400">
+                <p className="text-[9px] text-gray-400 mb-1">
                   vs Avg <span className={vsAvgTop3Share >= 0 ? "text-emerald-500" : "text-red-400"}>
                     {vsAvgTop3Share >= 0 ? "+" : ""}{vsAvgTop3Share}
                   </span>
                 </p>
               )}
             </div>
-            <p className="text-3xl font-black text-blue-600 leading-none mt-1">{totalPoints}</p>
           </div>
           
           {/* Top-3 share */}
           <div className="bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Top-3 share</p>
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Top-3 share</p>
+            <div className="flex items-end justify-between">
+              <p className="text-3xl font-black text-gray-900 leading-none">
+                {totalPoints > 0 ? `${top3Share}%` : "—"}
+              </p>
               {vsAvgTop3Share !== null && (
-                <p className="text-[9px] text-gray-400">
+                <p className="text-[9px] text-gray-400 mb-1">
                   vs Avg <span className={vsAvgTop3Share >= 0 ? "text-emerald-500" : "text-red-400"}>
                     {vsAvgTop3Share >= 0 ? "+" : ""}{vsAvgTop3Share}%
                   </span>
                 </p>
               )}
             </div>
-            <p className="text-3xl font-black text-gray-900 leading-none mt-1">
-              {totalPoints > 0 ? `${top3Share}%` : "—"}
-            </p>
           </div>
         </div>
 
@@ -203,92 +215,93 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         <div className="grid grid-cols-2 gap-2">
           {/* Saturation Index with tooltip */}
           <div className="relative group bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider cursor-help underline decoration-dotted decoration-gray-300">
-                Saturation Index
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 cursor-help underline decoration-dotted decoration-gray-300">
+              Saturation Index
+            </p>
+            {/* Tooltip */}
+            <div className="pointer-events-none absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+              Locations per 100K population
+              <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
+            </div>
+            <div className="flex items-end justify-between">
+              <p className="text-3xl font-black text-gray-900 leading-none">
+                {saturationIndex !== null ? saturationIndex : "—"}
               </p>
               {vsAvgSaturation !== null && (
-                <p className="text-[9px] text-gray-400">
+                <p className="text-[9px] text-gray-400 mb-1">
                   vs Avg <span className={vsAvgSaturation >= 0 ? "text-emerald-500" : "text-red-400"}>
                     {vsAvgSaturation >= 0 ? "+" : ""}{vsAvgSaturation}
                   </span>
                 </p>
               )}
             </div>
-            {/* Tooltip */}
-            <div className="pointer-events-none absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 shadow-lg">
-              Locations per 100K population
-              <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
-            </div>
-            <p className="text-3xl font-black text-gray-900 leading-none mt-1">
-              {saturationIndex !== null ? saturationIndex : "—"}
-            </p>
           </div>
           
           {/* Chain Density with tooltip */}
           <div className="relative group bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider cursor-help underline decoration-dotted decoration-gray-300">
-                Chain Density
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 cursor-help underline decoration-dotted decoration-gray-300">
+              Chain Density
+            </p>
+            {/* Tooltip */}
+            <div className="pointer-events-none absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+              Locations per 1000 km²
+              <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
+            </div>
+            <div className="flex items-end justify-between">
+              <p className="text-3xl font-black text-gray-900 leading-none">
+                {chainDensity !== null ? chainDensity : "—"}
               </p>
               {vsAvgChainDensity !== null && (
-                <p className="text-[9px] text-gray-400">
+                <p className="text-[9px] text-gray-400 mb-1">
                   vs Avg <span className={vsAvgChainDensity >= 0 ? "text-emerald-500" : "text-red-400"}>
                     {vsAvgChainDensity >= 0 ? "+" : ""}{vsAvgChainDensity}
                   </span>
                 </p>
               )}
             </div>
-            {/* Tooltip */}
-            <div className="pointer-events-none absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 shadow-lg">
-              Locations per 1000 km²
-              <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
-            </div>
-            <p className="text-3xl font-black text-gray-900 leading-none mt-1">
-              {chainDensity !== null ? chainDensity : "—"}
-            </p>
           </div>
         </div>
       </div>
 
-      {/* Dynamics */}
-      <Card className="px-4 py-3 flex items-center gap-3 flex-shrink-0">
-        <div className="flex items-center gap-0.5 flex-shrink-0">
-          {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              style={{ minWidth: 46 }}
-              className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors text-center ${
-                period === p ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-600"
-              }`}
-            >
-              {PERIOD_LABELS[p]}
-            </button>
-          ))}
-        </div>
-        <div className="flex-1" />
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {totalDynamics >= 0
-            ? <TrendingUp className="w-5 h-5 text-emerald-500" />
-            : <TrendingDown className="w-5 h-5 text-red-400" />}
-          <span className={`text-2xl font-black leading-none ${totalDynamics >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-            {totalDynamics >= 0 ? "+" : ""}{totalDynamics}
-          </span>
-          <span className="text-[10px] text-gray-400">(exp.)</span>
-        </div>
-      </Card>
-
-      {/* vs Avg для Growth rate под значением */}
-      {vsAvgGrowthRate !== null && (
-        <div className="mx-2 -mt-1 mb-1 text-right">
-          <p className="text-[9px] text-gray-400 inline">
-            vs Avg <span className={vsAvgGrowthRate >= 0 ? "text-emerald-500" : "text-red-400"}>
-              {vsAvgGrowthRate >= 0 ? "+" : ""}{vsAvgGrowthRate}
+      {/* Dynamics Card с vs Avg внутри */}
+      <Card className="px-4 py-3 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                style={{ minWidth: 46 }}
+                className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors text-center ${
+                  period === p ? "bg-blue-600 text-white" : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                {PERIOD_LABELS[p]}
+              </button>
+            ))}
+          </div>
+          <div className="flex-1" />
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {totalDynamics >= 0
+              ? <TrendingUp className="w-5 h-5 text-emerald-500" />
+              : <TrendingDown className="w-5 h-5 text-red-400" />}
+            <span className={`text-2xl font-black leading-none ${totalDynamics >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+              {totalDynamics >= 0 ? "+" : ""}{totalDynamics}
             </span>
-          </p>
+            <span className="text-[10px] text-gray-400">(exp.)</span>
+          </div>
         </div>
-      )}
+        {/* vs Avg для Growth rate внутри карточки, выровнен вправо */}
+        {vsAvgGrowthRate !== null && (
+          <div className="flex justify-end mt-1">
+            <p className="text-[9px] text-gray-400">
+              vs Avg <span className={vsAvgGrowthRate >= 0 ? "text-emerald-500" : "text-red-400"}>
+                {vsAvgGrowthRate >= 0 ? "+" : ""}{vsAvgGrowthRate}
+              </span>
+            </p>
+          </div>
+        )}
+      </Card>
 
       {/* Tabs */}
       <div className="mx-2 mt-2 flex border-b border-gray-200">
@@ -310,7 +323,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
           }`}
           onClick={() => setActiveTab("radar")}
         >
-          Comparison
+          Country Avg
         </button>
       </div>
 
@@ -353,7 +366,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
               <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
                 <PolarGrid stroke="#e5e7eb" />
                 <PolarAngleAxis dataKey="subject" tick={{ fill: '#6b7280', fontSize: 9 }} />
-                <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={{ fontSize: 8 }} />
+                <PolarRadiusAxis angle={30} domain={[0, 1]} tick={{ fontSize: 8, formatter: (value) => `${Math.round(value * 100)}%` }} />
                 <Radar
                   name={selectedRegion}
                   dataKey="region"
@@ -371,6 +384,13 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
                 <Tooltip 
                   contentStyle={{ fontSize: '10px', padding: '4px 8px' }}
                   itemStyle={{ fontSize: '10px' }}
+                  formatter={(value: number, name: string, props: any) => {
+                    // Показываем оригинальные значения в тултипе
+                    if (name === selectedRegion) {
+                      return [props.payload.originalRegion, name];
+                    }
+                    return [props.payload.originalCountry, name];
+                  }}
                 />
               </RadarChart>
             </ResponsiveContainer>
