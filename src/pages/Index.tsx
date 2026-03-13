@@ -45,7 +45,7 @@ const COUNTRIES = [
 ];
 
 const SIDEBAR_W = 264;
-const REGION_PANEL_W = 336; // slightly wider so km² doesn't wrap
+const REGION_PANEL_W = 336;
 
 // ── Nav button ────────────────────────────────────────────────
 const NavBtn = ({
@@ -69,18 +69,16 @@ const NavBtn = ({
   </div>
 );
 
-const Sep = () => <span className="text-gray-300 text-xs select-none mx-0.5">·</span>;
+const Sep = () => <span className="text-gray-300 text-xs select-none mx-1">·</span>;
 
-// Чип как у "Competitive Intelligence" — серый текст с точкой
+// Единый стиль для всех информационных чипов
 const InfoChip = ({ label }: { label: string }) => (
-  <>
-    <span className="text-[11px] text-gray-400 font-normal select-none whitespace-nowrap">{label}</span>
-  </>
+  <span className="text-[11px] text-gray-400 font-light select-none whitespace-nowrap tracking-normal">{label}</span>
 );
 
-// Синий чип для выбранного региона (оставляем как есть)
+// Синий чип для выбранного региона
 const RegionChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
-  <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium border border-blue-100 select-none whitespace-nowrap">
+  <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-normal border border-blue-100 select-none whitespace-nowrap">
     {label}
     <button onClick={onRemove} className="hover:text-blue-800 ml-0.5 flex-shrink-0">
       <X className="w-2.5 h-2.5" />
@@ -92,11 +90,12 @@ const RegionChip = ({ label, onRemove }: { label: string; onRemove: () => void }
 const SidebarToggle = ({ isOpen, onClick }: { isOpen: boolean; onClick: () => void }) => (
   <button
     onClick={onClick}
-    className="absolute left-[264px] top-1/2 transform -translate-y-1/2 -ml-3 w-6 h-12 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-r-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-white/90 transition-all z-50"
-    style={{ 
-      backdropFilter: "blur(4px)",
-      left: isOpen ? '264px' : '0px',
-      transition: 'left 0.2s ease'
+    className="absolute top-1/2 transform -translate-y-1/2 w-6 h-12 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-r-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-white transition-all z-50"
+    style={{
+      left: isOpen ? '263px' : '-1px',
+      transition: 'left 0.2s ease-in-out',
+      backdropFilter: 'blur(4px)',
+      boxShadow: '2px 0 8px rgba(0,0,0,0.1)'
     }}
   >
     {isOpen ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -107,10 +106,8 @@ const SidebarToggle = ({ isOpen, onClick }: { isOpen: boolean; onClick: () => vo
 const Index = () => {
   const navigate = useNavigate();
 
-  // selectedRegion is the SHORT display name; geo name used for map
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [flyToRegion, setFlyToRegion] = useState<string | null>(null);
-
   const [selectedBrands, setSelectedBrands] = useState<Brand[]>([...BRANDS]);
   const [selectedCategories, setSelectedCategories] = useState<Category[]>([...CATEGORIES]);
   const [regionStats, setRegionStats] = useState<RegionStats | null>(null);
@@ -123,7 +120,6 @@ const Index = () => {
     setRegionStats(stats);
   }, []);
 
-  // Select by short display name → convert to geo name for flyTo
   const handleSelectRegion = useCallback((displayName: string | null) => {
     setSelectedRegion(displayName);
     setRegionOpen(false);
@@ -136,7 +132,6 @@ const Index = () => {
     }
   }, []);
 
-  // Map click emits geo name → convert to display name
   const handleMapRegionClick = useCallback((geoName: string) => {
     const display = GEO_TO_DISPLAY[geoName] ?? geoName;
     setSelectedRegion(display);
@@ -145,14 +140,12 @@ const Index = () => {
     setTimeout(() => setFlyToRegion(geo), 10);
   }, []);
 
-  // ── Linked brand ↔ category — no nested setState ──────────
   const handleToggleBrand = useCallback((brand: Brand) => {
     setSelectedBrands((prev) => {
       const next = prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand];
       const nextCats: Category[] = CATEGORIES.filter((cat) =>
         CATEGORY_BRAND_MAP[cat].some((b) => next.includes(b))
       );
-      // schedule separately to avoid batching issues
       setTimeout(() => setSelectedCategories(nextCats), 0);
       return next;
     });
@@ -194,7 +187,6 @@ const Index = () => {
     setSelectedBrands((pb) => pb.filter((b) => !allCatBrands.has(b)));
   }, []);
 
-  // Pass GEO name to RegionMap
   const selectedRegionGeo = selectedRegion ? (DISPLAY_TO_GEO[selectedRegion] ?? selectedRegion) : null;
   const regionPanelOpen = selectedRegion !== null;
 
@@ -226,10 +218,10 @@ const Index = () => {
       {/* ── Content column ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* TOP BAR — все элементы в одном стиле */}
+        {/* TOP BAR — все элементы в едином легком стиле */}
         <div
-          className="bg-white border-b border-gray-200 flex items-center px-4 gap-1.5 flex-shrink-0"
-          style={{ zIndex: 150, position: "relative", overflow: "visible", height: 44, paddingBottom: 2 }}
+          className="bg-white border-b border-gray-200 flex items-center px-4 gap-1 flex-shrink-0"
+          style={{ zIndex: 150, position: "relative", overflow: "visible", height: 44 }}
         >
           <span className="text-base font-bold text-blue-600 leading-none">Country Explorer</span>
           <Sep />
@@ -237,9 +229,9 @@ const Index = () => {
           <Sep />
           <InfoChip label="Great Britain" />
           <Sep />
-          <InfoChip label={`${selectedBrands.length} brand${selectedBrands.length !== 1 ? "s" : ""}`} />
+          <InfoChip label={`${selectedBrands.length} brand${selectedBrands.length !== 1 ? 's' : ''}`} />
           <Sep />
-          <InfoChip label={`${selectedCategories.length} categor${selectedCategories.length !== 1 ? "ies" : "y"}`} />
+          <InfoChip label={`${selectedCategories.length} categor${selectedCategories.length !== 1 ? 'ies' : 'y'}`} />
           {selectedRegion && (
             <>
               <Sep />
@@ -259,13 +251,12 @@ const Index = () => {
               background: "#f0f2f5",
               borderRight: filterPanelOpen ? "1px solid #d1d5db" : "none",
               zIndex: 10,
-              transition: "width 0.2s ease",
+              transition: "width 0.2s ease-in-out",
               overflow: "hidden",
               position: "relative",
             }}
           >
             <div style={{ width: `${SIDEBAR_W}px` }} className="flex flex-col h-full">
-
               {/* Country selector */}
               <div className="px-3 pt-3 pb-2 border-b border-[#d1d5db]">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-1">Country</p>
@@ -297,7 +288,7 @@ const Index = () => {
                 </div>
               </div>
 
-              {/* Region selector — short display names, maps to geo names */}
+              {/* Region selector */}
               <div className="px-3 py-2 border-b border-[#d1d5db]">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-1">Region</p>
                 <div className="relative" onClick={(e) => e.stopPropagation()}>
@@ -380,7 +371,7 @@ const Index = () => {
             </div>
           </aside>
 
-          {/* Кнопка сворачивания панели — теперь видима и поверх карты */}
+          {/* Кнопка сворачивания панели — теперь точно видима! */}
           <SidebarToggle isOpen={filterPanelOpen} onClick={() => setFilterPanelOpen(!filterPanelOpen)} />
 
           {/* Map */}
