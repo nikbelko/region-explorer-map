@@ -52,7 +52,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   return (
     <div className="flex flex-col h-full">
 
-      {/* ── Header ── */}
+      {/* 1. Region name + close */}
       <div className="px-4 py-3 border-b border-gray-100 flex items-start justify-between flex-shrink-0">
         <div>
           <h3 className="text-base font-bold text-gray-900 leading-tight">{selectedRegion}</h3>
@@ -66,7 +66,31 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         </button>
       </div>
 
-      {/* ── 4 key metrics (2×2 grid) ── */}
+      {/* 2. Geo stats — Area / Population / Density in Getplace style */}
+      <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+          <div>
+            <p className="text-[11px] text-gray-400 mb-0.5">Area</p>
+            <p className="text-[13px] font-bold text-gray-700 leading-tight">
+              {area ? `${area.toLocaleString()} km²` : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] text-gray-400 mb-0.5">Population</p>
+            <p className="text-[13px] font-bold text-gray-700 leading-tight">
+              {population ? `${population}M` : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] text-gray-400 mb-0.5">Pop. density</p>
+            <p className="text-[13px] font-bold text-gray-700 leading-tight">
+              {populationDensity ? `${populationDensity.toLocaleString()} / km²` : "—"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Key metrics (2×2 large numbers) */}
       <div className="px-4 pt-3 pb-2 border-b border-gray-100 flex-shrink-0">
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <div>
@@ -94,31 +118,27 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         </div>
       </div>
 
-      {/* ── Area + density compact row ── */}
-      <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-6 flex-shrink-0">
-        <div>
-          <p className="text-[11px] text-gray-400">Area</p>
-          <p className="text-[13px] font-bold text-gray-700">
-            {area ? `${area.toLocaleString()} km²` : "—"}
-          </p>
+      {/* 4. Dynamics FIRST — big arrow + value, then small period pills */}
+      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-shrink-0">
+        {/* Arrow + value — primary */}
+        <div className="flex items-center gap-1">
+          {totalDynamics >= 0
+            ? <TrendingUp className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+            : <TrendingDown className="w-4 h-4 text-red-400 flex-shrink-0" />
+          }
+          <span className={`text-sm font-bold ${totalDynamics >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+            {totalDynamics >= 0 ? "+" : ""}{totalDynamics}
+          </span>
+          <span className="text-[10px] text-gray-400 ml-0.5">(exp.)</span>
         </div>
-        <div>
-          <p className="text-[11px] text-gray-400">Pop. density</p>
-          <p className="text-[13px] font-bold text-gray-700">
-            {populationDensity ? `${populationDensity.toLocaleString()} / km²` : "—"}
-          </p>
-        </div>
-      </div>
 
-      {/* ── Period selector + dynamics ── */}
-      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-3 flex-shrink-0">
-        {/* Period pills */}
-        <div className="flex items-center gap-0.5">
+        {/* Period pills — smaller, pushed right */}
+        <div className="flex items-center gap-0.5 ml-auto">
           {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`text-xs px-3 py-1 rounded-md transition-colors font-medium ${
+              className={`text-[10px] px-2 py-0.5 rounded transition-colors font-medium ${
                 period === p
                   ? "bg-blue-600 text-white"
                   : "text-gray-400 hover:text-gray-600"
@@ -128,21 +148,9 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             </button>
           ))}
         </div>
-
-        {/* Trending arrow + value */}
-        <div className="flex items-center gap-1 ml-auto">
-          {totalDynamics >= 0
-            ? <TrendingUp className="w-4 h-4 text-emerald-500" />
-            : <TrendingDown className="w-4 h-4 text-red-400" />
-          }
-          <span className={`text-sm font-bold ${totalDynamics >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-            {totalDynamics >= 0 ? "+" : ""}{totalDynamics}
-          </span>
-          <span className="text-[10px] text-gray-400">(exp.)</span>
-        </div>
       </div>
 
-      {/* ── Brand breakdown ── */}
+      {/* 5. Brand breakdown */}
       <div className="flex-1 overflow-y-auto">
         {regionStats && regionStats.totalPoints > 0 ? (
           <div className="px-4 py-3 space-y-2.5">
