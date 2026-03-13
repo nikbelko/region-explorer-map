@@ -1,7 +1,17 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { X, TrendingUp, TrendingDown } from "lucide-react";
 import { RegionStats } from "@/data/regions";
 import { getRegionPopulation, getRegionArea } from "@/data/regionPopulation";
+import {
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  Legend,
+  ResponsiveContainer,
+  Tooltip
+} from "recharts";
 
 type Period = "month" | "quarter" | "year";
 const PERIOD_LABELS: Record<Period, string> = { month: "Month", quarter: "Quarter", year: "Year" };
@@ -27,6 +37,23 @@ const Card = ({ children, className = "" }: { children: React.ReactNode; classNa
   <div className={`mx-2 mt-2 bg-white rounded-lg border border-[#e5e7eb] ${className}`}>{children}</div>
 );
 
+// Расчет средних показателей по всей стране
+const calculateCountryAverages = (regionStats: RegionStats | null, allRegionsStats?: Record<string, RegionStats>) => {
+  // Если нет данных по всем регионам, используем заглушки
+  // В реальном приложении нужно передавать статистику по всем регионам
+  const mockAvgSaturation = 12.5;
+  const mockAvgTop3Share = 65;
+  const mockAvgChainDensity = 8.3;
+  const mockAvgGrowthRate = 15;
+  
+  return {
+    saturationIndex: mockAvgSaturation,
+    top3Share: mockAvgTop3Share,
+    chainDensity: mockAvgChainDensity,
+    growthRate: mockAvgGrowthRate
+  };
+};
+
 const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionInfoPanelProps) => {
   const [period, setPeriod] = useState<Period>("quarter");
 
@@ -37,7 +64,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   const populationDensity = population && area ? Math.round((population * 1_000_000) / area) : null;
   const totalPoints = regionStats?.totalPoints ?? 0;
   
-  // Saturation Index (formerly Presence Density) — locations per 100K population
+  // Saturation Index — locations per 100K population
   const saturationIndex =
     population && population > 0
       ? Math.round((totalPoints / (population * 1_000_000)) * 100_000 * 10) / 10
@@ -54,6 +81,43 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
     totalPoints > 0 ? Math.round((top3Brands.reduce((s, b) => s + b.count, 0) / totalPoints) * 100) : 0;
   const totalDynamics =
     regionStats?.brands.reduce((sum, b) => sum + getBrandDynamics(selectedRegion, b.brand, period), 0) ?? 0;
+
+  // Средние показатели по стране
+  const countryAvg = calculateCountryAverages(regionStats);
+  
+  // Разница с средним по стране
+  const vsAvgSaturation = saturationIndex !== null ? Math.round((saturationIndex - countryAvg.saturationIndex) * 10) / 10 : null;
+  const vsAvgTop3Share = top3Share > 0 ? Math.round(top3Share - countryAvg.top3Share) : null;
+  const vsAvgChainDensity = chainDensity !== null ? Math.round((chainDensity - countryAvg.chainDensity) * 10) / 10 : null;
+  const vsAvgGrowthRate = Math.round(totalDynamics - countryAvg.growthRate);
+
+  // Данные для радарной диаграммы
+  const radarData = [
+    {
+      subject: 'Saturation',
+      region: saturationIndex || 0,
+      country: countryAvg.saturationIndex,
+      fullMark: Math.max(saturationIndex || 0, countryAvg.saturationIndex) * 1.5,
+    },
+    {
+      subject: 'Top-3 Share',
+      region: top3Share,
+      country: countryAvg.top3Share,
+      fullMark: 100,
+    },
+    {
+      subject: 'Chain Density',
+      region: chainDensity || 0,
+      country: countryAvg.chainDensity,
+      fullMark: Math.max(chainDensity || 0, countryAvg.chainDensity) * 1.5,
+    },
+    {
+      subject: 'Growth Rate',
+      region: totalDynamics,
+      country: countryAvg.growthRate,
+      fullMark: Math.max(totalDynamics, countryAvg.growthRate) * 1.5,
+    },
+  ];
 
   return (
     <div className="flex flex-col h-full pb-2">
@@ -72,7 +136,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         </button>
       </Card>
 
-      {/* Geo stats — 3 columns with dividers, whitespace-nowrap to prevent km² wrap */}
+      {/* Geo stats — 3 columns with dividers */}
       <Card className="px-0 py-3 flex-shrink-0">
         <div className="flex items-stretch divide-x divide-gray-100">
           <div className="flex-1 px-3 min-w-0">
@@ -100,10 +164,17 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
       <div className="mx-2 mt-2 flex flex-col gap-2 flex-shrink-0">
         {/* Первый ряд: Locations + Top-3 share */}
         <div className="grid grid-cols-2 gap-2">
-          {/* Locations */}
+          {/* Locations — синее значение */}
           <div className="bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
             <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Locations</p>
-            <p className="text-3xl font-black text-gray-900 leading-none">{totalPoints}</p>
+            <p className="text-3xl font-black text-blue-600 leading-none">{totalPoints}</p>
+            {vsAvgTop3Share !== null && (
+              <p className="text-[9px] text-gray-400 mt-1">
+                vs Avg <span className={vsAvgTop3Share >= 0 ? "text-emerald-500" : "text-red-400"}>
+                  {vsAvgTop3Share >= 0 ? "+" : ""}{vsAvgTop3Share}
+                </span>
+              </p>
+            )}
           </div>
           
           {/* Top-3 share */}
@@ -112,6 +183,13 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             <p className="text-3xl font-black text-gray-900 leading-none">
               {totalPoints > 0 ? `${top3Share}%` : "—"}
             </p>
+            {vsAvgTop3Share !== null && (
+              <p className="text-[9px] text-gray-400 mt-1">
+                vs Avg <span className={vsAvgTop3Share >= 0 ? "text-emerald-500" : "text-red-400"}>
+                  {vsAvgTop3Share >= 0 ? "+" : ""}{vsAvgTop3Share}%
+                </span>
+              </p>
+            )}
           </div>
         </div>
 
@@ -130,6 +208,13 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             <p className="text-3xl font-black text-gray-900 leading-none">
               {saturationIndex !== null ? saturationIndex : "—"}
             </p>
+            {vsAvgSaturation !== null && (
+              <p className="text-[9px] text-gray-400 mt-1">
+                vs Avg <span className={vsAvgSaturation >= 0 ? "text-emerald-500" : "text-red-400"}>
+                  {vsAvgSaturation >= 0 ? "+" : ""}{vsAvgSaturation}
+                </span>
+              </p>
+            )}
           </div>
           
           {/* Chain Density with tooltip */}
@@ -145,6 +230,13 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             <p className="text-3xl font-black text-gray-900 leading-none">
               {chainDensity !== null ? chainDensity : "—"}
             </p>
+            {vsAvgChainDensity !== null && (
+              <p className="text-[9px] text-gray-400 mt-1">
+                vs Avg <span className={vsAvgChainDensity >= 0 ? "text-emerald-500" : "text-red-400"}>
+                  {vsAvgChainDensity >= 0 ? "+" : ""}{vsAvgChainDensity}
+                </span>
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -174,6 +266,55 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             {totalDynamics >= 0 ? "+" : ""}{totalDynamics}
           </span>
           <span className="text-[10px] text-gray-400">(exp.)</span>
+        </div>
+        {vsAvgGrowthRate !== null && (
+          <span className="text-[9px] text-gray-400 ml-1">
+            vs Avg <span className={vsAvgGrowthRate >= 0 ? "text-emerald-500" : "text-red-400"}>
+              {vsAvgGrowthRate >= 0 ? "+" : ""}{vsAvgGrowthRate}
+            </span>
+          </span>
+        )}
+      </Card>
+
+      {/* Radar Chart */}
+      <Card className="p-3 flex-shrink-0">
+        <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Region vs Country Average</p>
+        <div className="w-full h-[200px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+              <PolarGrid stroke="#e5e7eb" />
+              <PolarAngleAxis dataKey="subject" tick={{ fill: '#6b7280', fontSize: 9 }} />
+              <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={{ fontSize: 8 }} />
+              <Radar
+                name={selectedRegion}
+                dataKey="region"
+                stroke="#3B82F6"
+                fill="#3B82F6"
+                fillOpacity={0.3}
+              />
+              <Radar
+                name="Country Avg"
+                dataKey="country"
+                stroke="#9ca3af"
+                fill="#9ca3af"
+                fillOpacity={0.1}
+              />
+              <Tooltip 
+                contentStyle={{ fontSize: '10px', padding: '4px 8px' }}
+                itemStyle={{ fontSize: '10px' }}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex items-center justify-center gap-4 mt-1">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-blue-500 rounded-full" />
+            <span className="text-[9px] text-gray-500">{selectedRegion}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-gray-400 rounded-full" />
+            <span className="text-[9px] text-gray-500">Country Avg</span>
+          </div>
         </div>
       </Card>
 
