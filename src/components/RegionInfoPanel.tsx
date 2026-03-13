@@ -36,19 +36,10 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   const area = getRegionArea(selectedRegion);
   const populationDensity = population && area ? Math.round((population * 1_000_000) / area) : null;
   const totalPoints = regionStats?.totalPoints ?? 0;
-  
-  // Saturation Index (formerly Presence Density) — locations per 100K population
-  const saturationIndex =
+  const concentrationIndex =
     population && population > 0
       ? Math.round((totalPoints / (population * 1_000_000)) * 100_000 * 10) / 10
       : null;
-  
-  // Chain Density — locations per 1000 km²
-  const chainDensity =
-    area && area > 0
-      ? Math.round((totalPoints / area) * 1000 * 10) / 10
-      : null;
-  
   const top3Brands = regionStats?.brands.slice(0, 3) ?? [];
   const top3Share =
     totalPoints > 0 ? Math.round((top3Brands.reduce((s, b) => s + b.count, 0) / totalPoints) * 100) : 0;
@@ -96,50 +87,32 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
         </div>
       </Card>
 
-      {/* Metrics — теперь 3 колонки вместо 2 */}
+      {/* Metrics */}
       <div className="mx-2 mt-2 flex flex-col gap-2 flex-shrink-0">
-        {/* Locations — теперь занимает всю ширину, так как метрик стало 3 внизу */}
+        {/* Locations — full width */}
         <div className="bg-white rounded-lg border border-[#e5e7eb] px-4 py-3">
           <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Locations</p>
           <p className="text-3xl font-black text-gray-900 leading-none">{totalPoints}</p>
         </div>
-        
-        {/* Три метрики в ряд: Saturation Index, Chain Density, Top-3 share */}
-        <div className="grid grid-cols-3 gap-2">
-          {/* Saturation Index (formerly Presence Density) with tooltip */}
-          <div className="relative group bg-white rounded-lg border border-[#e5e7eb] px-2 py-3">
-            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 cursor-help underline decoration-dotted decoration-gray-300 text-center">
-              Saturation
+        {/* Presence density + Top-3 share */}
+        <div className="grid grid-cols-2 gap-2">
+          {/* Presence density with tooltip */}
+          <div className="relative group bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 cursor-help underline decoration-dotted decoration-gray-300">
+              Presence density
             </p>
             {/* Tooltip */}
-            <div className="pointer-events-none absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 shadow-lg">
+            <div className="pointer-events-none absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 shadow-lg">
               Locations per 100K population
-              <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
+              <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
             </div>
-            <p className="text-2xl font-black text-gray-900 leading-none text-center">
-              {saturationIndex !== null ? saturationIndex : "—"}
+            <p className="text-3xl font-black text-gray-900 leading-none">
+              {concentrationIndex !== null ? concentrationIndex : "—"}
             </p>
           </div>
-          
-          {/* Chain Density — новый показатель */}
-          <div className="relative group bg-white rounded-lg border border-[#e5e7eb] px-2 py-3">
-            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 cursor-help underline decoration-dotted decoration-gray-300 text-center">
-              Chain density
-            </p>
-            {/* Tooltip */}
-            <div className="pointer-events-none absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 shadow-lg">
-              Locations per 1000 km²
-              <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900" />
-            </div>
-            <p className="text-2xl font-black text-gray-900 leading-none text-center">
-              {chainDensity !== null ? chainDensity : "—"}
-            </p>
-          </div>
-          
-          {/* Top-3 share */}
-          <div className="bg-white rounded-lg border border-[#e5e7eb] px-2 py-3">
-            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 text-center">Top-3 share</p>
-            <p className="text-2xl font-black text-gray-900 leading-none text-center">
+          <div className="bg-white rounded-lg border border-[#e5e7eb] px-3 py-3">
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Top-3 share</p>
+            <p className="text-3xl font-black text-gray-900 leading-none">
               {totalPoints > 0 ? `${top3Share}%` : "—"}
             </p>
           </div>
