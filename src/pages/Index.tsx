@@ -234,7 +234,7 @@ const Index = () => {
           className="bg-white border-b border-gray-200 flex items-center px-4 gap-1 flex-shrink-0"
           style={{ zIndex: 150, position: "relative", overflow: "visible", height: 48 }}>
           
-          <span className="text-base font-bold text-blue-600 leading-none flex items-center pt-0 pb-[2px]">Country Explorer</span>
+          <span className="text-base font-bold text-blue-600 leading-none flex items-center pt-0 pb-[3px]">Country Explorer</span>
           <Sep />
           <span className="text-[11px] text-gray-400 font-light flex items-center">Competitive Intelligence</span>
           <Sep />
