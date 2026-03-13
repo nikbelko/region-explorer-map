@@ -13,13 +13,11 @@ interface RegionMapProps {
 }
 
 const REGION_COLORS = [
-  "hsl(185, 72%, 48%)", "hsl(340, 65%, 55%)", "hsl(45, 85%, 55%)",
-  "hsl(130, 50%, 50%)", "hsl(270, 55%, 55%)", "hsl(20, 80%, 55%)",
-  "hsl(200, 70%, 55%)", "hsl(160, 55%, 50%)", "hsl(300, 50%, 55%)",
-  "hsl(60, 70%, 50%)", "hsl(0, 72%, 55%)", "hsl(210, 65%, 55%)",
+  "#3b82f6", "#ef4444", "#f59e0b", "#10b981",
+  "#8b5cf6", "#f97316", "#06b6d4", "#84cc16",
+  "#ec4899", "#14b8a6", "#6366f1", "#a3e635",
 ];
 
-// Store loaded restaurant data globally within component
 interface RestaurantPoint {
   brand: Brand;
   lat: number;
@@ -39,7 +37,6 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
   const [loading, setLoading] = useState(true);
   const [loadingBrands, setLoadingBrands] = useState(0);
 
-  // Keep refs in sync
   selectedBrandsRef.current = selectedBrands;
   selectedRegionRef.current = selectedRegion;
 
@@ -47,14 +44,12 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
     const regionsData = regionsDataRef.current;
     if (!regionsData) return null;
 
-    // Find the region feature
     const regionFeature = regionsData.features?.find((f: any) => {
       const props = f?.properties || {};
       return (props.ITL125NM || `Region ${f?.id || "unknown"}`) === regionName;
     });
     if (!regionFeature) return null;
 
-    // Count restaurants inside this region, filtered by selected brands
     const brandCounts: Record<string, number> = {};
     let total = 0;
 
@@ -67,7 +62,7 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
           total++;
         }
       } catch {
-        // skip invalid geometries
+        // skip
       }
     }
 
@@ -83,7 +78,6 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
     return { regionName, totalPoints: total, brands: brandStats };
   }, []);
 
-  // Load regions
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
 
@@ -94,7 +88,8 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
       attributionControl: true,
     });
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    // Light map tiles — Getplace style
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
       subdomains: "abcd",
       maxZoom: 19,
@@ -107,11 +102,15 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
       .then((data) => {
         regionsDataRef.current = data;
 
-        // Create hover tooltip div
+        // Light hover tooltip
         const tooltipDiv = document.createElement("div");
         tooltipDiv.className = "region-hover-tooltip";
         tooltipDiv.style.cssText =
-          "display:none;position:absolute;z-index:900;pointer-events:none;background:hsl(222,47%,11%,0.9);backdrop-filter:blur(8px);border:1px solid hsl(217,33%,17%);border-radius:8px;padding:6px 10px;font-size:11px;color:hsl(210,40%,98%);box-shadow:0 4px 12px rgba(0,0,0,0.4);max-width:220px;";
+          "display:none;position:absolute;z-index:900;pointer-events:none;" +
+          "background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;" +
+          "padding:8px 12px;font-size:11px;color:#111827;" +
+          "box-shadow:0 2px 10px rgba(0,0,0,0.12);max-width:220px;" +
+          "font-family:'Inter',-apple-system,sans-serif;";
         map.getContainer().appendChild(tooltipDiv);
         (map as any)._regionTooltipDiv = tooltipDiv;
 
@@ -120,54 +119,61 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
           style: () => {
             const color = REGION_COLORS[colorIndex % REGION_COLORS.length];
             colorIndex++;
-            return { color: "#fff", weight: 2, fillColor: color, fillOpacity: 0.3 };
+            return { color: "#ffffff", weight: 2, fillColor: color, fillOpacity: 0.45 };
           },
           onEachFeature: (feature, layer) => {
             const props = feature?.properties || {};
             const name = props.ITL125NM || `Region ${feature?.id || "unknown"}`;
             (layer as any)._regionName = name;
-            layer.on("click", () => {
-              onRegionClick(name);
-            });
+
+            layer.on("click", () => onRegionClick(name));
+
             layer.on("mouseover", () => {
               if (selectedRegionRef.current === name) return;
               const stats = computeRegionStats(name, selectedBrandsRef.current);
               const total = stats?.totalPoints ?? 0;
               const top2 = stats?.brands.slice(0, 2) ?? [];
+
               const top2Html = top2.map(
-                (b) => `<div style="display:flex;align-items:center;gap:4px;margin-top:2px;"><span style="width:6px;height:6px;border-radius:2px;background:${b.color};display:inline-block;"></span><span>${b.brand}</span><span style="margin-left:auto;font-weight:600;">${b.count}</span></div>`
+                (b) => `<div style="display:flex;align-items:center;gap:5px;margin-top:3px;">` +
+                  `<span style="width:6px;height:6px;border-radius:50%;background:${b.color};display:inline-block;flex-shrink:0;"></span>` +
+                  `<span style="color:#374151;flex:1;">${b.brand}</span>` +
+                  `<span style="font-weight:600;color:#111827;">${b.count}</span>` +
+                  `</div>`
               ).join("");
 
               const pop = getRegionPopulation(name);
               const area = getRegionArea(name);
-              const popDensity = pop && area
-                ? Math.round((pop * 1_000_000) / area)
-                : null;
+              const popDensity = pop && area ? Math.round((pop * 1_000_000) / area) : null;
 
               const metaHtml = [
-                pop ? `<div style="color:hsl(210,20%,70%);">Население: <span style="color:hsl(210,40%,98%);font-weight:600;">${pop} млн</span></div>` : "",
-                area ? `<div style="color:hsl(210,20%,70%);">Площадь: <span style="color:hsl(210,40%,98%);font-weight:600;">${area.toLocaleString()} км²</span></div>` : "",
-                popDensity ? `<div style="color:hsl(210,20%,70%);">Плотность: <span style="color:hsl(210,40%,98%);font-weight:600;">${popDensity.toLocaleString()} чел/км²</span></div>` : "",
+                pop    ? `<div style="color:#6b7280;margin-top:2px;">Population: <span style="color:#111827;font-weight:600;">${pop}M</span></div>` : "",
+                area   ? `<div style="color:#6b7280;">Area: <span style="color:#111827;font-weight:600;">${area.toLocaleString()} km²</span></div>` : "",
+                popDensity ? `<div style="color:#6b7280;">Density: <span style="color:#111827;font-weight:600;">${popDensity.toLocaleString()} / km²</span></div>` : "",
               ].join("");
 
               tooltipDiv.innerHTML =
-                `<div style="font-weight:700;margin-bottom:3px;">${name}</div>` +
-                `<div style="color:hsl(210,20%,70%);">Точек: <span style="color:hsl(210,40%,98%);font-weight:600;">${total}</span></div>` +
+                `<div style="font-weight:700;font-size:12px;color:#111827;margin-bottom:4px;">${name}</div>` +
+                `<div style="color:#6b7280;">Locations: <span style="color:#111827;font-weight:600;">${total}</span></div>` +
                 metaHtml +
-                (top2Html ? `<div style="margin-top:3px;border-top:1px solid hsl(217,33%,17%);padding-top:3px;">${top2Html}</div>` : "");
+                (top2Html ? `<div style="margin-top:5px;padding-top:5px;border-top:1px solid #f3f4f6;">${top2Html}</div>` : "");
+
               tooltipDiv.style.display = "block";
             });
+
             layer.on("mousemove", (e: any) => {
               if (selectedRegionRef.current === name) return;
               const containerPoint = map.latLngToContainerPoint(e.latlng);
-              tooltipDiv.style.left = (containerPoint.x + 12) + "px";
+              tooltipDiv.style.left = (containerPoint.x + 14) + "px";
               tooltipDiv.style.top = (containerPoint.y - 10) + "px";
             });
+
             layer.on("mouseout", () => {
               tooltipDiv.style.display = "none";
             });
           },
         }).addTo(map);
+
         layersRef.current = geoLayer;
         setLoading(false);
       })
@@ -200,26 +206,20 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
             const marker = L.circleMarker([lat, lng], {
               radius: 4,
               fillColor: brand.color,
-              color: brand.color,
+              color: "#ffffff",
               weight: 1,
-              fillOpacity: 0.85,
+              fillOpacity: 0.9,
             });
             marker.bindTooltip(
               `<strong style="color:${brand.color}">${brand.name}</strong><br/>${name}`,
               { direction: "top", offset: [0, -6], className: "brand-tooltip" }
-            );
-            marker.bindPopup(
-              `<div style="font-family:sans-serif;font-size:12px">` +
-              `<strong style="color:${brand.color}">${brand.name}</strong><br/>` +
-              `<span>${name}</span></div>`
             );
             layerGroup.addLayer(marker);
           });
           loaded++;
           setLoadingBrands(BRAND_CONFIGS.length - loaded);
         })
-        .catch((err) => {
-          console.error(`Failed to load ${brand.name}:`, err);
+        .catch(() => {
           loaded++;
           setLoadingBrands(BRAND_CONFIGS.length - loaded);
         });
@@ -239,14 +239,11 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
     layersRef.current.eachLayer((layer: any) => {
       const isSelected = layer._regionName === selectedRegion;
       layer.setStyle({
-        fillOpacity: isSelected ? 0.55 : 0.3,
-        weight: isSelected ? 4 : 2,
-        color: isSelected ? "#ffffff" : "#fff",
-        dashArray: isSelected ? "" : "",
+        fillOpacity: isSelected ? 0.65 : 0.45,
+        weight: isSelected ? 3 : 2,
+        color: isSelected ? "#1d4ed8" : "#ffffff",
       });
-      if (isSelected) {
-        layer.bringToFront();
-      }
+      if (isSelected) layer.bringToFront();
     });
 
     if (selectedRegion) {
@@ -261,14 +258,10 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
   useEffect(() => {
     const map = mapInstance.current;
     if (!map) return;
-
     Object.entries(markerLayersRef.current).forEach(([brandName, layerGroup]) => {
       const isVisible = selectedBrands.includes(brandName as Brand);
-      if (isVisible && !map.hasLayer(layerGroup)) {
-        map.addLayer(layerGroup);
-      } else if (!isVisible && map.hasLayer(layerGroup)) {
-        map.removeLayer(layerGroup);
-      }
+      if (isVisible && !map.hasLayer(layerGroup)) map.addLayer(layerGroup);
+      else if (!isVisible && map.hasLayer(layerGroup)) map.removeLayer(layerGroup);
     });
   }, [selectedBrands]);
 
@@ -279,27 +272,27 @@ const RegionMap = ({ onRegionClick, selectedRegion, selectedBrands, onRegionStat
       <div ref={mapRef} className="w-full h-full" />
 
       {/* Legend */}
-      <div className="absolute bottom-6 right-6 z-[1000] bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3">
-        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Легенда</h4>
+      <div className="absolute bottom-5 right-5 z-[1000] bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Chains</h4>
         <div className="space-y-1.5">
           {BRAND_CONFIGS.filter((b) => selectedBrands.includes(b.name)).map((b) => (
             <div key={b.name} className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: b.color }} />
-              <span className="text-xs text-foreground/80">{b.name}</span>
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: b.color }} />
+              <span className="text-xs text-gray-600">{b.name}</span>
             </div>
           ))}
           {selectedBrands.length === 0 && (
-            <p className="text-[10px] text-muted-foreground italic">Нет активных брендов</p>
+            <p className="text-[10px] text-gray-400 italic">No active chains</p>
           )}
         </div>
       </div>
 
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-[1000]">
-          <div className="flex items-center gap-3 text-primary">
-            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm font-medium">
-              {loading ? "Загрузка регионов..." : `Загрузка брендов (${loadingBrands})...`}
+        <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-[1000]">
+          <div className="flex items-center gap-3 text-blue-600">
+            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm font-medium text-gray-600">
+              {loading ? "Loading regions..." : `Loading brands (${loadingBrands})...`}
             </span>
           </div>
         </div>
