@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Lightbulb, Map, BarChart2, List, Star, Settings, LogOut, ChevronRight, Download } from "lucide-react";
+import { ArrowLeft, Lightbulb, Map, BarChart2, List, Star, Settings, LogOut, Download } from "lucide-react";
 import L from "leaflet";
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
 import { point as turfPoint } from "@turf/helpers";
-import { Brand, BRANDS, BRAND_CONFIGS } from "@/data/regions";
+import { Brand, BRANDS } from "@/data/regions";
 import { useRestaurantData } from "@/hooks/useRestaurantData";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -38,7 +38,7 @@ interface RegionComparison {
 const NavBtn = ({
   icon, label, active = false, onClick,
 }: { icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void }) => (
-  <div className="relative group">
+  <div className="relative group" style={{ isolation: "isolate" }}>
     <button
       onClick={onClick}
       className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
@@ -47,7 +47,10 @@ const NavBtn = ({
     >
       {icon}
     </button>
-    <span className="absolute left-11 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-[11px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+    <span
+      className="pointer-events-none absolute left-12 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-[11px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
+      style={{ zIndex: 9999 }}
+    >
       {label}
     </span>
   </div>
@@ -191,7 +194,7 @@ const Compare = () => {
     <div className="flex h-screen w-screen overflow-hidden bg-white">
 
       {/* ── Navbar ── */}
-      <nav className="w-12 flex-shrink-0 bg-[#1e2128] flex flex-col items-center py-3 gap-1 z-20">
+      <nav className="w-12 flex-shrink-0 bg-[#1e2128] flex flex-col items-center py-3 gap-1" style={{ zIndex: 9998, position: "relative" }}>
         <div className="w-8 h-8 mb-4 flex items-center justify-center">
           <svg viewBox="0 0 107.57 137.26" className="w-5 h-5" fill="#9a9d9e">
             <path d="M77,60.2c17.98,6.17,31.89-14.53,21.26-30.29C89.01,16.2,73.41,7.2,55.72,7.2C27.33,7.2,4.31,30.4,4.31,59.03c0,33.56,38.08,63.1,48.7,70.68c1.65,1.18,3.78,1.18,5.43,0c5.79-4.13,19.74-14.8,31.24-29.08c8.85-11,3.92-26.29-8.16-33.59c-7.96-4.81-19.96-4.13-23.53,4.45c-1.76,4.23-1.72,8.9,2.87,13.5C71.27,95.39,40.3,98.85,40.3,74.58c0-19.82,21.52-22.05,28.92-17.89C71.88,58.18,74.48,59.33,77,60.2z" />
@@ -206,18 +209,18 @@ const Compare = () => {
         <NavBtn icon={<Settings className="w-4 h-4" />} label="Settings" />
       </nav>
 
-      {/* ── Map (full remaining width) ── */}
+      {/* ── Map ── */}
       <main className="flex-1 relative">
         <div ref={mapRef} className="w-full h-full" />
 
-        {/* Insights overlay */}
+        {/* Insights — wider, same style as RegionInfoPanel area */}
         {insights.length > 0 && (
-          <div className="absolute bottom-4 left-4 z-[1000] bg-white border border-gray-200 rounded-lg shadow-sm p-3 max-w-xs">
-            <div className="flex items-center gap-2 mb-1.5">
+          <div className="absolute bottom-5 left-4 z-[1000] bg-white border border-gray-200 rounded-lg shadow-sm p-3" style={{ maxWidth: "340px" }}>
+            <div className="flex items-center gap-2 mb-2">
               <Lightbulb className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
               <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Insights</h4>
             </div>
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {insights.map((text, i) => (
                 <p key={i} className="text-xs text-gray-600">• {text}</p>
               ))}
@@ -235,11 +238,11 @@ const Compare = () => {
         )}
       </main>
 
-      {/* ── Right panel: brand selectors + table ── */}
-      <aside className="w-[300px] flex-shrink-0 border-l border-gray-200 bg-[#f0f2f5] flex flex-col">
+      {/* ── Right panel — 360px wide ── */}
+      <aside className="flex-shrink-0 border-l border-gray-200 bg-[#f0f2f5] flex flex-col" style={{ width: "360px" }}>
 
         {/* Header */}
-        <div className="px-4 py-3 border-b border-[#d1d5db] bg-[#f0f2f5] flex-shrink-0">
+        <div className="px-4 py-3 border-b border-[#d1d5db] flex-shrink-0">
           <button
             onClick={() => navigate("/")}
             className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 transition-colors mb-2"
@@ -255,7 +258,7 @@ const Compare = () => {
         <div className="mx-2 mt-2 bg-white rounded-lg border border-[#e5e7eb] overflow-hidden flex-shrink-0">
           <div className="px-3 py-3 border-b border-gray-100">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-2 mb-1.5">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_A_COLOR }} />
               Brand A
             </label>
             <select
@@ -268,7 +271,7 @@ const Compare = () => {
           </div>
           <div className="px-3 py-3">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-2 mb-1.5">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_B_COLOR }} />
               Brand B
             </label>
             <select
@@ -284,14 +287,17 @@ const Compare = () => {
         {/* Table — white card */}
         <div className="mx-2 mt-2 mb-2 bg-white rounded-lg border border-[#e5e7eb] overflow-hidden flex-1 flex flex-col min-h-0">
 
-          {/* Period selector */}
+          {/* Legend + period */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 flex-shrink-0">
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />{brandA}
+              <span className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_A_COLOR }} />
+                {brandA}
               </span>
-              <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />{brandB}
+              <span className="text-gray-300 text-xs">vs</span>
+              <span className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_B_COLOR }} />
+                {brandB}
               </span>
             </div>
             <div className="flex items-center gap-0.5">
@@ -309,7 +315,7 @@ const Compare = () => {
             </div>
           </div>
 
-          {/* Table */}
+          {/* Table scroll area */}
           <div className="flex-1 overflow-y-auto">
             <Table>
               <TableHeader>
@@ -328,9 +334,7 @@ const Compare = () => {
                   return (
                     <TableRow
                       key={c.region}
-                      className={`border-b border-gray-50 cursor-pointer transition-colors ${
-                        isSelected ? "bg-blue-50" : "hover:bg-gray-50"
-                      }`}
+                      className={`border-b border-gray-50 cursor-pointer transition-colors ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
                       onClick={() => setSelectedRegion(c.region)}
                     >
                       <TableCell
@@ -344,16 +348,10 @@ const Compare = () => {
                       </TableCell>
                       <TableCell className="text-xs py-2 px-2 text-right font-semibold text-gray-800">{c.countA}</TableCell>
                       <TableCell className="text-xs py-2 px-2 text-right font-semibold text-gray-800">{c.countB}</TableCell>
-                      <TableCell className="text-xs py-2 px-2">
-                        {c.leader === "tie" ? <span className="text-gray-300">—</span> : (
-                          <span className="font-medium" style={{ color: c.leader === "A" ? BRAND_A_COLOR : BRAND_B_COLOR }}>
-                            {c.leader === "A" ? brandA : brandB}
-                          </span>
-                        )}
+                      <TableCell className="text-xs py-2 px-2 font-medium" style={{ color: c.leader === "A" ? BRAND_A_COLOR : c.leader === "B" ? BRAND_B_COLOR : "#9ca3af" }}>
+                        {c.leader === "tie" ? "—" : c.leader === "A" ? brandA : brandB}
                       </TableCell>
-                      <TableCell className={`text-xs py-2 px-2 text-right font-medium ${
-                        delta > 0 ? "text-emerald-600" : delta < 0 ? "text-red-500" : "text-gray-400"
-                      }`}>
+                      <TableCell className={`text-xs py-2 px-2 text-right font-medium ${delta > 0 ? "text-emerald-600" : delta < 0 ? "text-red-500" : "text-gray-400"}`}>
                         {delta > 0 ? "+" : ""}{delta}
                       </TableCell>
                     </TableRow>
@@ -372,16 +370,10 @@ const Compare = () => {
                     </TableCell>
                     <TableCell className="text-xs py-2 px-2 text-right font-bold text-gray-900">{totalA}</TableCell>
                     <TableCell className="text-xs py-2 px-2 text-right font-bold text-gray-900">{totalB}</TableCell>
-                    <TableCell className="text-xs py-2 px-2">
-                      {overallLeader === "tie" ? <span className="text-gray-300">—</span> : (
-                        <span className="font-bold" style={{ color: overallLeader === "A" ? BRAND_A_COLOR : BRAND_B_COLOR }}>
-                          {overallLeader === "A" ? brandA : brandB}
-                        </span>
-                      )}
+                    <TableCell className="text-xs py-2 px-2 font-bold" style={{ color: overallLeader === "A" ? BRAND_A_COLOR : overallLeader === "B" ? BRAND_B_COLOR : "#374151" }}>
+                      {overallLeader === "tie" ? "—" : overallLeader === "A" ? brandA : brandB}
                     </TableCell>
-                    <TableCell className={`text-xs py-2 px-2 text-right font-bold ${
-                      totalDelta > 0 ? "text-emerald-600" : totalDelta < 0 ? "text-red-500" : "text-gray-400"
-                    }`}>
+                    <TableCell className={`text-xs py-2 px-2 text-right font-bold ${totalDelta > 0 ? "text-emerald-600" : totalDelta < 0 ? "text-red-500" : "text-gray-400"}`}>
                       {totalDelta > 0 ? "+" : ""}{totalDelta}
                     </TableCell>
                   </TableRow>
