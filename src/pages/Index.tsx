@@ -2,8 +2,8 @@ import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Map, BarChart2, List, Star, Settings, LogOut,
-  Search, ChevronLeft, ChevronRight, X, Download, Globe } from
-"lucide-react";
+  Search, ChevronLeft, ChevronRight, X, Download, Globe, Menu
+} from "lucide-react";
 import RegionMap from "@/components/RegionMap";
 import BrandFilters from "@/components/BrandFilters";
 import CategoryFilters, { Category, CATEGORIES, CATEGORY_BRAND_MAP } from "@/components/CategoryFilters";
@@ -37,12 +37,12 @@ const GEO_TO_DISPLAY: Record<string, string> = Object.fromEntries(
 const DISPLAY_REGIONS = Object.keys(DISPLAY_TO_GEO);
 
 const COUNTRIES = [
-{ code: "GB", name: "Great Britain", active: true },
-{ code: "DE", name: "Germany", active: false },
-{ code: "FR", name: "France", active: false },
-{ code: "NL", name: "Netherlands", active: false },
-{ code: "US", name: "United States", active: false }];
-
+  { code: "GB", name: "Great Britain", active: true },
+  { code: "DE", name: "Germany", active: false },
+  { code: "FR", name: "France", active: false },
+  { code: "NL", name: "Netherlands", active: false },
+  { code: "US", name: "United States", active: false }
+];
 
 const SIDEBAR_W = 264;
 const REGION_PANEL_W = 336;
@@ -50,68 +50,140 @@ const REGION_PANEL_W = 336;
 // ── Nav button ────────────────────────────────────────────────
 const NavBtn = ({
   icon, label, active = false, onClick
-}: {icon: React.ReactNode;label: string;active?: boolean;onClick?: () => void;}) =>
-<div className="relative group" style={{ isolation: "isolate" }}>
+}: {icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void;}) => (
+  <div className="relative group" style={{ isolation: "isolate" }}>
     <button
-    onClick={onClick}
-    className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-    active ? "bg-[#2d3139] text-white" : "text-[#6b7280] hover:text-white hover:bg-[#2d3139]"}`
-    }>
-    
+      onClick={onClick}
+      className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+        active ? "bg-[#2d3139] text-white" : "text-[#6b7280] hover:text-white hover:bg-[#2d3139]"
+      }`}
+    >
       {icon}
     </button>
     <span
-    className="pointer-events-none absolute left-12 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-[11px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
-    style={{ zIndex: 9999 }}>
-    
+      className="pointer-events-none absolute left-12 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-[11px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
+      style={{ zIndex: 9999 }}
+    >
       {label}
     </span>
-  </div>;
-
+  </div>
+);
 
 const Sep = () => <span className="text-gray-300 text-xs select-none mx-1.5">·</span>;
 
 // Серый информационный чип (без крестика)
-const InfoChip = ({ label }: {label: string;}) =>
-<span className="text-[11px] text-gray-400 font-light select-none whitespace-nowrap tracking-normal">{label}</span>;
-
+const InfoChip = ({ label }: {label: string;}) => (
+  <span className="text-[11px] text-gray-400 font-light select-none whitespace-nowrap tracking-normal">{label}</span>
+);
 
 // Синий чип для выбранного региона
-const RegionChip = ({ label, onRemove }: {label: string;onRemove: () => void;}) =>
-<span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium border border-blue-100 select-none whitespace-nowrap">
+const RegionChip = ({ label, onRemove }: {label: string; onRemove: () => void;}) => (
+  <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium border border-blue-100 select-none whitespace-nowrap">
     {label}
     <button onClick={onRemove} className="hover:text-blue-800 ml-0.5 flex-shrink-0">
       <X className="w-2.5 h-2.5" />
     </button>
-  </span>;
-
+  </span>
+);
 
 // Чип для Great Britain (как регион с крестиком)
-const CountryChip = ({ label, onRemove }: {label: string;onRemove: () => void;}) =>
-<span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full font-medium border border-gray-200 select-none whitespace-nowrap">
+const CountryChip = ({ label, onRemove }: {label: string; onRemove: () => void;}) => (
+  <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full font-medium border border-gray-200 select-none whitespace-nowrap">
     {label}
     <button onClick={onRemove} className="hover:text-gray-900 ml-0.5 flex-shrink-0">
       <X className="w-2.5 h-2.5" />
     </button>
-  </span>;
-
+  </span>
+);
 
 // ── Кнопка сворачивания панели ───────────────────────────────
-const SidebarToggle = ({ isOpen, onClick }: {isOpen: boolean;onClick: () => void;}) =>
-<button
-  onClick={onClick}
-  className="absolute top-1/2 transform -translate-y-1/2 w-6 h-12 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-r-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-white transition-all z-[1000]"
-  style={{
-    left: isOpen ? '263px' : '-1px',
-    transition: 'left 0.2s ease-in-out',
-    backdropFilter: 'blur(4px)',
-    boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
-    pointerEvents: 'auto'
-  }}>
-  
+const SidebarToggle = ({ isOpen, onClick }: {isOpen: boolean; onClick: () => void;}) => (
+  <button
+    onClick={onClick}
+    className="absolute top-1/2 transform -translate-y-1/2 w-6 h-12 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-r-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-white transition-all z-[1000]"
+    style={{
+      left: isOpen ? '263px' : '-1px',
+      transition: 'left 0.2s ease-in-out',
+      backdropFilter: 'blur(4px)',
+      boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+      pointerEvents: 'auto'
+    }}
+  >
     {isOpen ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-  </button>;
+  </button>
+);
 
+// ── Компонент выбора региона (поверх карты) ──────────────────
+const RegionSelector = ({ isOpen, onClose, onSelectRegion, selectedRegion }: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSelectRegion: (region: string | null) => void;
+  selectedRegion: string | null;
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <>
+      {/* Затемнение фона */}
+      <div 
+        className="fixed inset-0 bg-black/20 z-[1001]" 
+        onClick={onClose}
+      />
+      
+      {/* Попап с регионами */}
+      <div 
+        className="absolute top-12 left-1/2 transform -translate-x-1/2 w-64 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl border border-blue-200 z-[1002] overflow-hidden"
+        style={{ backdropFilter: 'blur(8px)' }}
+      >
+        <div className="p-2 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
+          <span className="text-xs font-medium text-blue-700">Select region</span>
+          <button onClick={onClose} className="text-blue-400 hover:text-blue-600">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        
+        <div className="max-h-60 overflow-y-auto py-1">
+          <div
+            className={`flex items-center px-3 py-2 text-xs cursor-pointer hover:bg-blue-50 transition-colors ${
+              !selectedRegion ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+            }`}
+            onClick={() => {
+              onSelectRegion(null);
+              onClose();
+            }}
+          >
+            All regions
+            {!selectedRegion && (
+              <svg className="w-3 h-3 text-blue-600 ml-auto" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            )}
+          </div>
+          
+          {DISPLAY_REGIONS.map((r) => (
+            <div
+              key={r}
+              className={`flex items-center px-3 py-2 text-xs cursor-pointer hover:bg-blue-50 transition-colors ${
+                selectedRegion === r ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+              }`}
+              onClick={() => {
+                onSelectRegion(r);
+                onClose();
+              }}
+            >
+              {r}
+              {selectedRegion === r && (
+                <svg className="w-3 h-3 text-blue-600 ml-auto" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+};
 
 // ── Main page ─────────────────────────────────────────────────
 const Index = () => {
@@ -126,6 +198,7 @@ const Index = () => {
   const [filterPanelOpen, setFilterPanelOpen] = useState(true);
   const [countryOpen, setCountryOpen] = useState(false);
   const [regionOpen, setRegionOpen] = useState(false);
+  const [regionSelectorOpen, setRegionSelectorOpen] = useState(false);
 
   const handleRegionStats = useCallback((stats: RegionStats | null) => {
     setRegionStats(stats);
@@ -134,6 +207,7 @@ const Index = () => {
   const handleSelectRegion = useCallback((displayName: string | null) => {
     setSelectedRegion(displayName);
     setRegionOpen(false);
+    setRegionSelectorOpen(false);
     if (displayName) {
       const geoName = DISPLAY_TO_GEO[displayName] ?? displayName;
       setFlyToRegion(null);
@@ -155,7 +229,7 @@ const Index = () => {
     setSelectedBrands((prev) => {
       const next = prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand];
       const nextCats: Category[] = CATEGORIES.filter((cat) =>
-      CATEGORY_BRAND_MAP[cat].some((b) => next.includes(b))
+        CATEGORY_BRAND_MAP[cat].some((b) => next.includes(b))
       );
       setTimeout(() => setSelectedCategories(nextCats), 0);
       return next;
@@ -198,19 +272,19 @@ const Index = () => {
     setSelectedBrands((pb) => pb.filter((b) => !allCatBrands.has(b)));
   }, []);
 
-  const selectedRegionGeo = selectedRegion ? DISPLAY_TO_GEO[selectedRegion] ?? selectedRegion : null;
+  const selectedRegionGeo = selectedRegion ? (DISPLAY_TO_GEO[selectedRegion] ?? selectedRegion) : null;
   const regionPanelOpen = selectedRegion !== null;
 
   return (
     <div
       className="flex h-screen w-screen overflow-hidden bg-white"
-      onClick={() => {setCountryOpen(false);setRegionOpen(false);}}>
-      
+      onClick={() => { setCountryOpen(false); setRegionOpen(false); }}
+    >
       {/* ── Navbar ── */}
       <nav
         className="w-12 flex-shrink-0 bg-[#1e2128] flex flex-col items-center py-3 gap-1"
-        style={{ zIndex: 200, position: "relative" }}>
-        
+        style={{ zIndex: 200, position: "relative" }}
+      >
         <div className="w-8 h-8 mb-4 flex items-center justify-center">
           <svg viewBox="0 0 107.57 137.26" className="w-5 h-5" fill="#9a9d9e">
             <path d="M77,60.2c17.98,6.17,31.89-14.53,21.26-30.29C89.01,16.2,73.41,7.2,55.72,7.2C27.33,7.2,4.31,30.4,4.31,59.03c0,33.56,38.08,63.1,48.7,70.68c1.65,1.18,3.78,1.18,5.43,0c5.79-4.13,19.74-14.8,31.24-29.08c8.85-11,3.92-26.29-8.16-33.59c-7.96-4.81-19.96-4.13-23.53,4.45c-1.76,4.23-1.72,8.9,2.87,13.5C71.27,95.39,40.3,98.85,40.3,74.58c0-19.82,21.52-22.05,28.92-17.89C71.88,58.18,74.48,59.33,77,60.2z" />
@@ -229,11 +303,11 @@ const Index = () => {
       {/* ── Content column ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* TOP BAR — все элементы выровнены по центру */}
+        {/* TOP BAR — с новой кнопкой списка регионов */}
         <div
           className="bg-white border-b border-gray-200 flex items-center px-4 gap-1 flex-shrink-0"
-          style={{ zIndex: 150, position: "relative", overflow: "visible", height: 48 }}>
-          
+          style={{ zIndex: 150, position: "relative", overflow: "visible", height: 48 }}
+        >
           <span className="text-base font-bold text-blue-600 leading-none flex items-center pt-0 pb-[3px]">Country Explorer</span>
           <Sep />
           <span className="text-[11px] text-gray-400 font-light flex items-center">Competitive Intelligence</span>
@@ -243,12 +317,26 @@ const Index = () => {
           <InfoChip label={`${selectedBrands.length} brand${selectedBrands.length !== 1 ? 's' : ''}`} />
           <Sep />
           <InfoChip label={`${selectedCategories.length} categor${selectedCategories.length !== 1 ? 'ies' : 'y'}`} />
-          {selectedRegion &&
-          <>
-              <Sep />
-              <RegionChip label={selectedRegion} onRemove={() => handleSelectRegion(null)} />
+          
+          {/* Кнопка выбора региона (список) */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setRegionSelectorOpen(true); }}
+            className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium border border-blue-100 hover:bg-blue-100 transition-colors ml-1"
+          >
+            <Menu className="w-3 h-3" />
+            <span>{selectedRegion ?? "All regions"}</span>
+          </button>
+          
+          {selectedRegion && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleSelectRegion(null); }}
+                className="text-blue-400 hover:text-blue-600 ml-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
             </>
-          }
+          )}
         </div>
 
         {/* ── Sidebar + map + right panel ── */}
@@ -265,37 +353,37 @@ const Index = () => {
               transition: "width 0.2s ease-in-out",
               overflow: "hidden",
               position: "relative"
-            }}>
-            
+            }}
+          >
             <div style={{ width: `${SIDEBAR_W}px` }} className="flex flex-col h-full">
               {/* Country selector */}
               <div className="px-3 pt-3 pb-2 border-b border-[#d1d5db]">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-1">Country</p>
                 <div className="relative" onClick={(e) => e.stopPropagation()}>
                   <button
-                    onClick={() => {setCountryOpen((v) => !v);setRegionOpen(false);}}
-                    className="flex items-center gap-2 bg-white border border-[#d1d5db] rounded-md px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-gray-400 transition-colors w-full">
-                    
+                    onClick={() => { setCountryOpen((v) => !v); setRegionOpen(false); }}
+                    className="flex items-center gap-2 bg-white border border-[#d1d5db] rounded-md px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-gray-400 transition-colors w-full"
+                  >
                     <Globe className="w-3 h-3 text-gray-400 flex-shrink-0" />
                     <span className="flex-1 text-left">Great Britain</span>
                     <ChevronRight className="w-3 h-3 text-gray-400" style={{ transform: countryOpen ? "rotate(-90deg)" : "rotate(90deg)", transition: "transform 0.15s" }} />
                   </button>
-                  {countryOpen &&
-                  <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-[#d1d5db] rounded-md shadow-md overflow-hidden" style={{ zIndex: 50 }}>
-                      {COUNTRIES.map((c) =>
-                    <div
-                      key={c.code}
-                      className={`flex items-center gap-2 px-3 py-2 text-xs border-b border-gray-50 last:border-0 ${c.active ? "cursor-pointer hover:bg-blue-50 text-gray-800 font-medium" : "cursor-not-allowed text-gray-300"}`}
-                      onClick={() => c.active && setCountryOpen(false)}>
-                      
+                  {countryOpen && (
+                    <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-[#d1d5db] rounded-md shadow-md overflow-hidden" style={{ zIndex: 50 }}>
+                      {COUNTRIES.map((c) => (
+                        <div
+                          key={c.code}
+                          className={`flex items-center gap-2 px-3 py-2 text-xs border-b border-gray-50 last:border-0 ${c.active ? "cursor-pointer hover:bg-blue-50 text-gray-800 font-medium" : "cursor-not-allowed text-gray-300"}`}
+                          onClick={() => c.active && setCountryOpen(false)}
+                        >
                           <Globe className="w-3 h-3 flex-shrink-0" />
                           {c.name}
                           {!c.active && <span className="ml-auto text-[9px] bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">Soon</span>}
                           {c.active && <svg className="w-3 h-3 text-blue-600 ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                         </div>
-                    )}
+                      ))}
                     </div>
-                  }
+                  )}
                 </div>
               </div>
 
@@ -304,41 +392,41 @@ const Index = () => {
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-1">Region</p>
                 <div className="relative" onClick={(e) => e.stopPropagation()}>
                   <button
-                    onClick={() => {setRegionOpen((v) => !v);setCountryOpen(false);}}
-                    className="flex items-center gap-2 bg-white border border-[#d1d5db] rounded-md px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-gray-400 transition-colors w-full">
-                    
+                    onClick={() => { setRegionOpen((v) => !v); setCountryOpen(false); }}
+                    className="flex items-center gap-2 bg-white border border-[#d1d5db] rounded-md px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-gray-400 transition-colors w-full"
+                  >
                     <span className="flex-1 text-left truncate">{selectedRegion ?? "All regions"}</span>
-                    {selectedRegion &&
-                    <button
-                      onClick={(e) => {e.stopPropagation();handleSelectRegion(null);}}
-                      className="text-gray-400 hover:text-gray-600 flex-shrink-0">
-                      
+                    {selectedRegion && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleSelectRegion(null); }}
+                        className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+                      >
                         <X className="w-3 h-3" />
                       </button>
-                    }
+                    )}
                     <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" style={{ transform: regionOpen ? "rotate(-90deg)" : "rotate(90deg)", transition: "transform 0.15s" }} />
                   </button>
-                  {regionOpen &&
-                  <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-[#d1d5db] rounded-md shadow-md overflow-hidden max-h-52 overflow-y-auto" style={{ zIndex: 50 }}>
+                  {regionOpen && (
+                    <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-[#d1d5db] rounded-md shadow-md overflow-hidden max-h-52 overflow-y-auto" style={{ zIndex: 50 }}>
                       <div
-                      className={`flex items-center gap-2 px-3 py-2 text-xs border-b border-gray-50 cursor-pointer hover:bg-blue-50 ${!selectedRegion ? "text-blue-700 font-medium bg-blue-50/40" : "text-gray-600"}`}
-                      onClick={() => handleSelectRegion(null)}>
-                      
+                        className={`flex items-center gap-2 px-3 py-2 text-xs border-b border-gray-50 cursor-pointer hover:bg-blue-50 ${!selectedRegion ? "text-blue-700 font-medium bg-blue-50/40" : "text-gray-600"}`}
+                        onClick={() => handleSelectRegion(null)}
+                      >
                         All regions
                         {!selectedRegion && <svg className="w-3 h-3 text-blue-600 ml-auto" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                       </div>
-                      {DISPLAY_REGIONS.map((r) =>
-                    <div
-                      key={r}
-                      className={`flex items-center px-3 py-2 text-xs border-b border-gray-50 last:border-0 cursor-pointer hover:bg-blue-50 ${selectedRegion === r ? "text-blue-700 font-medium bg-blue-50/60" : "text-gray-700"}`}
-                      onClick={() => handleSelectRegion(r)}>
-                      
+                      {DISPLAY_REGIONS.map((r) => (
+                        <div
+                          key={r}
+                          className={`flex items-center px-3 py-2 text-xs border-b border-gray-50 last:border-0 cursor-pointer hover:bg-blue-50 ${selectedRegion === r ? "text-blue-700 font-medium bg-blue-50/60" : "text-gray-700"}`}
+                          onClick={() => handleSelectRegion(r)}
+                        >
                           {r}
                           {selectedRegion === r && <svg className="w-3 h-3 text-blue-600 ml-auto flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                         </div>
-                    )}
+                      ))}
                     </div>
-                  }
+                  )}
                 </div>
               </div>
 
@@ -351,13 +439,13 @@ const Index = () => {
                     value={brandSearch}
                     onChange={(e) => setBrandSearch(e.target.value)}
                     placeholder="Search brand..."
-                    className="text-xs bg-transparent border-none outline-none w-full text-gray-700 placeholder:text-gray-400" />
-                  
-                  {brandSearch &&
-                  <button onClick={() => setBrandSearch("")}>
+                    className="text-xs bg-transparent border-none outline-none w-full text-gray-700 placeholder:text-gray-400"
+                  />
+                  {brandSearch && (
+                    <button onClick={() => setBrandSearch("")}>
                       <X className="w-3 h-3 text-gray-400 hover:text-gray-600" />
                     </button>
-                  }
+                  )}
                 </div>
               </div>
 
@@ -369,14 +457,14 @@ const Index = () => {
                     onToggleBrand={handleToggleBrand}
                     onSelectAll={handleSelectAllBrands}
                     onDeselectAll={handleDeselectAllBrands}
-                    searchQuery={brandSearch} />
-                  
+                    searchQuery={brandSearch}
+                  />
                   <CategoryFilters
                     selectedCategories={selectedCategories}
                     onToggleCategory={handleToggleCategory}
                     onSelectAll={handleSelectAllCategories}
-                    onDeselectAll={handleDeselectAllCategories} />
-                  
+                    onDeselectAll={handleDeselectAllCategories}
+                  />
                 </div>
               </div>
             </div>
@@ -394,34 +482,43 @@ const Index = () => {
                 selectedBrands={selectedBrands}
                 onRegionStats={handleRegionStats}
                 flyToRegion={flyToRegion}
-                regionPanelWidth={regionPanelOpen ? REGION_PANEL_W : 0} />
+                regionPanelWidth={regionPanelOpen ? REGION_PANEL_W : 0}
+              />
               
               <InsightsPanel
                 selectedRegion={selectedRegion}
                 regionStats={regionStats}
                 selectedBrands={selectedBrands}
-                selectedCategories={selectedCategories} />
-              
+                selectedCategories={selectedCategories}
+              />
+
+              {/* Попап выбора региона */}
+              <RegionSelector
+                isOpen={regionSelectorOpen}
+                onClose={() => setRegionSelectorOpen(false)}
+                onSelectRegion={handleSelectRegion}
+                selectedRegion={selectedRegion}
+              />
             </div>
           </div>
 
           {/* Right region panel */}
-          {regionPanelOpen &&
-          <aside
-            className="flex-shrink-0 border-l border-[#d1d5db] bg-[#f0f2f5] flex flex-col overflow-y-auto"
-            style={{ width: `${REGION_PANEL_W}px`, zIndex: 10 }}>
-            
+          {regionPanelOpen && (
+            <aside
+              className="flex-shrink-0 border-l border-[#d1d5db] bg-[#f0f2f5] flex flex-col overflow-y-auto"
+              style={{ width: `${REGION_PANEL_W}px`, zIndex: 10 }}
+            >
               <RegionInfoPanel
-              selectedRegion={selectedRegion}
-              regionStats={regionStats}
-              onClearRegion={() => handleSelectRegion(null)} />
-            
+                selectedRegion={selectedRegion}
+                regionStats={regionStats}
+                onClearRegion={() => handleSelectRegion(null)}
+              />
             </aside>
-          }
+          )}
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 };
 
 export default Index;
