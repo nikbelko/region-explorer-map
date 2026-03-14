@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Lightbulb, Map, BarChart2, List, Star, Settings, LogOut, ChevronRight, Crosshair, Target, Sword, Radio, Plus, Minus } from "lucide-react";
+import { ArrowLeft, Lightbulb, Map, BarChart2, List, Star, Settings, LogOut, ChevronRight, Crosshair, Target, Sword, Radio, Plus, Minus, Flame } from "lucide-react";
 import L from "leaflet";
+import 'leaflet.heat';
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
 import { point as turfPoint } from "@turf/helpers";
 import { Brand, BRANDS, BRAND_CONFIGS } from "@/data/regions";
@@ -17,6 +18,7 @@ const BRAND_B_COLOR = "#F97316";
 const CONFLICT_COLOR = "#DC2626";
 
 type MapLayer = "both" | "conflict" | "a" | "b";
+type ConflictView = "points" | "heatmap";
 
 interface RegionMetrics {
   region: string;
@@ -80,6 +82,30 @@ function calculateBattleIndex(
   return Math.round((hasNearby / pointsA.length) * 100);
 }
 
+// Функция для цвета фона ячейки Battle Index
+const getBattleColor = (value: number) => {
+  const opacity = Math.min(0.5, value / 200); // Нормализуем к 0.5 для мягкости
+  return `rgba(239, 68, 68, ${opacity})`; // Красный (red-500)
+};
+
+// Кастомный тултип для Radar chart
+const CustomRadarTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-2 text-xs">
+        <p className="font-medium text-gray-700 mb-1">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <p key={index} style={{ color: entry.color }} className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+            {entry.name}: {entry.value}%
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
 const Compare = () => {
   const navigate = useNavigate();
   const { restaurants, loading: dataLoading } = useRestaurantData();
@@ -89,7 +115,8 @@ const Compare = () => {
   const [regionsData, setRegionsData] = useState<any>(null);
   const [mapLoading, setMapLoading] = useState(true);
   const [activeLayer, setActiveLayer] = useState<MapLayer>("both");
-  const [showRadar, setShowRadar] = useState(false); // По умолчанию свернут
+  const [conflictView, setConflictView] = useState<ConflictView>("heatmap"); // по умолчанию heatmap
+  const [showRadar, setShowRadar] = useState(false);
 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
@@ -97,6 +124,7 @@ const Compare = () => {
   const markerLayerA = useRef<L.LayerGroup | null>(null);
   const markerLayerB = useRef<L.LayerGroup | null>(null);
   const conflictLayer = useRef<L.LayerGroup | null>(null);
+  const heatmapLayer = useRef<any>(null);
   const hexagonLayer = useRef<L.LayerGroup | null>(null);
 
   // Init map
@@ -127,20 +155,33 @@ const Compare = () => {
       setMapLoading(false);
     }).catch(() => setMapLoading(false));
 
-    return () => { map.remove(); mapInstance.current = null; };
+    return () => { 
+      if (heatmapLayer.current) {
+        map.removeLayer(heatmapLayer.current);
+      }
+      map.remove(); 
+      mapInstance.current = null; 
+    };
   }, []);
 
   // Update markers and layers
   useEffect(() => {
-    if (!markerLayerA.current || !markerLayerB.current || !conflictLayer.current || !hexagonLayer.current) return;
+    if (!markerLayerA.current || !markerLayerB.current || !conflictLayer.current || !hexagonLayer.current || !mapInstance.current) return;
     
     markerLayerA.current.clearLayers();
     markerLayerB.current.clearLayers();
     conflictLayer.current.clearLayers();
     hexagonLayer.current.clearLayers();
+    
+    // Удаляем старый heatmap слой если есть
+    if (heatmapLayer.current) {
+      mapInstance.current.removeLayer(heatmapLayer.current);
+      heatmapLayer.current = null;
+    }
 
     const pointsA: Array<{ lat: number; lng: number }> = [];
     const pointsB: Array<{ lat: number; lng: number }> = [];
+    const conflictPoints: Array<[number, number, number]> = [];
 
     restaurants.forEach((r) => {
       if (r.brand === brandA) {
@@ -170,40 +211,70 @@ const Compare = () => {
       }
     });
 
-    // Create conflict zones (hexagons)
-    if (activeLayer === "conflict" && pointsA.length > 0 && pointsB.length > 0) {
-      const bounds = L.latLngBounds(pointsA.concat(pointsB).map(p => [p.lat, p.lng]));
-      const hexSize = 0.05;
-      
-      for (let lat = bounds.getSouth(); lat <= bounds.getNorth(); lat += hexSize * 1.5) {
-        for (let lng = bounds.getWest(); lng <= bounds.getEast(); lng += hexSize * Math.sqrt(3)) {
-          const nearbyA = pointsA.filter(p => 
-            Math.abs(p.lat - lat) < hexSize && Math.abs(p.lng - lng) < hexSize
-          ).length;
-          const nearbyB = pointsB.filter(p => 
-            Math.abs(p.lat - lat) < hexSize && Math.abs(p.lng - lng) < hexSize
-          ).length;
+    // Создаем точки для конфликтных зон (где оба бренда рядом)
+    if (activeLayer === "conflict") {
+      // Для каждой точки A проверяем, есть ли рядом точка B
+      const conflictPointsSet = new Set();
+      pointsA.forEach(pointA => {
+        pointsB.forEach(pointB => {
+          const R = 6371e3;
+          const φ1 = pointA.lat * Math.PI / 180;
+          const φ2 = pointB.lat * Math.PI / 180;
+          const Δφ = (pointB.lat - pointA.lat) * Math.PI / 180;
+          const Δλ = (pointB.lng - pointA.lng) * Math.PI / 180;
           
-          if (nearbyA > 0 && nearbyB > 0) {
-            const intensity = Math.min(100, (nearbyA + nearbyB) * 20);
-            const hexagon = L.circleMarker([lat, lng], {
-              radius: 8,
-              fillColor: CONFLICT_COLOR,
-              color: "#fff",
-              weight: 1,
-              fillOpacity: intensity / 100,
-              opacity: 0.5
-            });
-            hexagon.bindTooltip(
-              `Конфликтная зона<br/>${brandA}: ${nearbyA}, ${brandB}: ${nearbyB}`,
-              { direction: "top" }
-            );
-            hexagonLayer.current!.addLayer(hexagon);
+          const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ/2) * Math.sin(Δλ/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          const distance = R * c;
+          
+          if (distance <= 1000) { // 1 км радиус
+            // Добавляем среднюю точку между ними с интенсивностью
+            const midLat = (pointA.lat + pointB.lat) / 2;
+            const midLng = (pointA.lng + pointB.lng) / 2;
+            const key = `${midLat.toFixed(4)},${midLng.toFixed(4)}`;
+            if (!conflictPointsSet.has(key)) {
+              conflictPointsSet.add(key);
+              // Интенсивность зависит от близости (чем ближе, тем выше)
+              const intensity = Math.max(0.3, 1 - (distance / 1000));
+              conflictPoints.push([midLat, midLng, intensity]);
+            }
           }
-        }
+        });
+      });
+
+      if (conflictView === "heatmap" && conflictPoints.length > 0) {
+        // Создаем heatmap слой
+        heatmapLayer.current = (L as any).heatLayer(conflictPoints, {
+          radius: 30,
+          blur: 20,
+          maxZoom: 12,
+          gradient: {
+            0.2: 'blue',
+            0.4: 'cyan',
+            0.6: 'lime',
+            0.8: 'yellow',
+            1.0: 'red'
+          }
+        }).addTo(mapInstance.current);
+      } else if (conflictView === "points") {
+        // Показываем отдельные точки конфликтов
+        conflictPoints.forEach(([lat, lng, intensity]) => {
+          const marker = L.circleMarker([lat, lng], {
+            radius: 6,
+            fillColor: CONFLICT_COLOR,
+            color: "#fff",
+            weight: 1,
+            fillOpacity: intensity,
+            opacity: 0.8
+          });
+          marker.bindTooltip(`⚔️ Конфликтная зона<br/>Интенсивность: ${Math.round(intensity * 100)}%`);
+          conflictLayer.current!.addLayer(marker);
+        });
       }
     }
-  }, [brandA, brandB, restaurants, activeLayer]);
+  }, [brandA, brandB, restaurants, activeLayer, conflictView]);
 
   // Calculate region metrics
   const regionMetrics = useMemo<RegionMetrics[]>(() => {
@@ -472,6 +543,33 @@ const Compare = () => {
               Conflict zones
             </button>
           </div>
+          
+          {/* Conflict view toggle - показываем только когда выбран conflict layer */}
+          {activeLayer === "conflict" && (
+            <div className="mt-2 pt-2 border-t border-gray-100">
+              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Conflict view</h4>
+              <div className="space-y-1.5">
+                <button
+                  onClick={() => setConflictView("heatmap")}
+                  className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
+                    conflictView === "heatmap" ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  <Flame className="w-3 h-3" />
+                  Show Conflict Intensity (Heatmap)
+                </button>
+                <button
+                  onClick={() => setConflictView("points")}
+                  className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
+                    conflictView === "points" ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  <Crosshair className="w-3 h-3" />
+                  Show Individual Points
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Insights */}
@@ -599,10 +697,7 @@ const Compare = () => {
                       fill={BRAND_B_COLOR}
                       fillOpacity={0.3}
                     />
-                    <Tooltip 
-                      contentStyle={{ fontSize: 11, padding: '4px 8px' }}
-                      formatter={(value: any) => [`${value}%`, '']}
-                    />
+                    <Tooltip content={<CustomRadarTooltip />} />
                   </RadarChart>
                 </ResponsiveContainer>
               </div>
@@ -638,6 +733,7 @@ const Compare = () => {
                 const displayName = m.region.replace(" (England)", "");
                 const delta = Math.abs(m.countA - m.countB);
                 const leader = m.countA > m.countB ? brandA : brandB;
+                const battleColor = getBattleColor(m.battleIndex);
                 
                 return (
                   <TableRow
@@ -677,11 +773,16 @@ const Compare = () => {
                       </div>
                     </TableCell>
                     
-                    {/* Battle Index */}
-                    <TableCell className="text-xs py-2 px-1">
+                    {/* Battle Index with heatmap coloring */}
+                    <TableCell 
+                      className="text-xs py-2 px-1"
+                      style={{ 
+                        backgroundColor: battleColor,
+                      }}
+                    >
                       <div className="flex items-center gap-1">
-                        <Sword className={`w-3 h-3 ${m.battleIndex > 70 ? "text-red-500" : "text-gray-300"}`} />
-                        <span className={`text-xs font-medium ${m.battleIndex > 70 ? "text-red-600" : "text-gray-600"}`}>
+                        <Sword className={`w-3 h-3 ${m.battleIndex > 70 ? "text-white" : "text-gray-600"}`} />
+                        <span className={`text-xs font-medium ${m.battleIndex > 70 ? "text-white" : "text-gray-900"}`}>
                           {m.battleIndex}%
                         </span>
                       </div>
