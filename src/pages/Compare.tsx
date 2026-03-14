@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Lightbulb, Map, BarChart2, List, Star, Settings, LogOut, ChevronRight, Crosshair, Target, Sword, Radio, Plus, Minus, Info } from "lucide-react";
+import { ArrowLeft, Lightbulb, Map, BarChart2, List, Star, Settings, LogOut, ChevronRight, Crosshair, Target, Sword, Radio, Plus, Minus } from "lucide-react";
 import L from "leaflet";
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
 import { point as turfPoint } from "@turf/helpers";
@@ -10,13 +10,7 @@ import { getRegionPopulation, getRegionArea } from "@/data/regionPopulation";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import {
-  Tooltip as UITooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend, ResponsiveContainer, Tooltip } from 'recharts';
 
 const BRAND_A_COLOR = "#3B82F6";
 const BRAND_B_COLOR = "#F97316";
@@ -86,24 +80,6 @@ function calculateBattleIndex(
   return Math.round((hasNearby / pointsA.length) * 100);
 }
 
-// Кастомный тултип для Radar chart
-const CustomRadarTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-2 text-xs">
-        <p className="font-medium text-gray-700 mb-1">{label}</p>
-        {payload.map((entry: any, index: number) => (
-          <p key={index} style={{ color: entry.color }} className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-            {entry.name}: {entry.value}%
-          </p>
-        ))}
-      </div>
-    );
-  }
-  return null;
-};
-
 const Compare = () => {
   const navigate = useNavigate();
   const { restaurants, loading: dataLoading } = useRestaurantData();
@@ -113,7 +89,7 @@ const Compare = () => {
   const [regionsData, setRegionsData] = useState<any>(null);
   const [mapLoading, setMapLoading] = useState(true);
   const [activeLayer, setActiveLayer] = useState<MapLayer>("both");
-  const [showRadar, setShowRadar] = useState(false);
+  const [showRadar, setShowRadar] = useState(false); // По умолчанию свернут
 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
@@ -219,7 +195,7 @@ const Compare = () => {
               opacity: 0.5
             });
             hexagon.bindTooltip(
-              `⚔️ Конфликтная зона<br/>${brandA}: ${nearbyA}, ${brandB}: ${nearbyB}`,
+              `Конфликтная зона<br/>${brandA}: ${nearbyA}, ${brandB}: ${nearbyB}`,
               { direction: "top" }
             );
             hexagonLayer.current!.addLayer(hexagon);
@@ -377,83 +353,40 @@ const Compare = () => {
     return { totalA, totalB, totalDelta, avgBattle, avgSaturationGap };
   }, [regionMetrics]);
 
-  // Insights (расширенная версия)
+  // Insights
   const insights = useMemo(() => {
     if (regionMetrics.length === 0) return [];
-    const result: { text: string; icon?: any; category?: string }[] = [];
+    const result: { text: string; icon?: any }[] = [];
 
-    // Лидерство по регионам
     const aWins = regionMetrics.filter((m) => m.leader === "A").length;
-    const bWins = regionMetrics.filter((m) => m.leader === "B").length;
-    const ties = regionMetrics.filter((m) => m.leader === "tie").length;
-    
     result.push({ 
-      category: "🏆 Leadership",
-      text: `${brandA} leads in ${aWins} regions (${Math.round(aWins/regionMetrics.length*100)}%), ${brandB} in ${bWins} regions (${Math.round(bWins/regionMetrics.length*100)}%)`,
-      icon: brandA === "McDonald's" ? "🍔" : "🍗"
+      text: `${brandA} leads in ${aWins} of ${regionMetrics.length} regions (${Math.round(aWins/regionMetrics.length*100)}%)` 
     });
 
-    // Самый большой разрыв в насыщении
     const maxGapRegion = regionMetrics.reduce((max, m) => m.saturationGap > max.saturationGap ? m : max);
     if (maxGapRegion.saturationGap > 0) {
       const leader = maxGapRegion.saturationA > maxGapRegion.saturationB ? brandA : brandB;
       result.push({ 
-        category: "📊 Saturation Gap",
-        text: `Largest gap: ${leader} ahead by ${maxGapRegion.saturationGap.toFixed(2)} points/100k in ${maxGapRegion.region.replace(" (England)", "")}`,
+        text: `Biggest saturation gap: ${leader} ahead by ${maxGapRegion.saturationGap.toFixed(2)} points/100k in ${maxGapRegion.region.replace(" (England)", "")}`,
         icon: Target
       });
     }
 
-    // Зоны высокой конкуренции
     const highConflictRegions = regionMetrics.filter(m => m.battleIndex > 70);
     if (highConflictRegions.length > 0) {
       result.push({ 
-        category: "⚔️ Hot Zones",
         text: `High competition (Battle Index >70%): ${highConflictRegions.map(r => r.region.replace(" (England)", "")).join(", ")}`,
         icon: Sword
       });
     }
 
-    // Зоны низкой конкуренции
     const lowConflictRegions = regionMetrics.filter(m => m.battleIndex < 30 && m.countA > 0 && m.countB > 0);
     if (lowConflictRegions.length > 0) {
       result.push({ 
-        category: "📡 Diverge Zones",
         text: `Brands diverge (Battle Index <30%): ${lowConflictRegions.map(r => r.region.replace(" (England)", "")).join(", ")}`,
         icon: Radio
       });
     }
-
-    // Самый высокий Battle Index
-    const highestBattle = regionMetrics.reduce((max, m) => m.battleIndex > max.battleIndex ? m : max);
-    if (highestBattle.battleIndex > 0) {
-      result.push({ 
-        category: "🔥 Hottest Battle",
-        text: `Most intense competition: ${highestBattle.region.replace(" (England)", "")} (${highestBattle.battleIndex}%)`,
-        icon: "🔥"
-      });
-    }
-
-    // Самый низкий Battle Index (где есть оба бренда)
-    const lowestBattle = regionMetrics
-      .filter(m => m.countA > 0 && m.countB > 0)
-      .reduce((min, m) => m.battleIndex < min.battleIndex ? m : min, { battleIndex: 100 } as any);
-    
-    if (lowestBattle.battleIndex < 100) {
-      result.push({ 
-        category: "🕊️ Peaceful Coexistence",
-        text: `Lowest competition: ${lowestBattle.region.replace(" (England)", "")} (${lowestBattle.battleIndex}%)`,
-        icon: "🕊️"
-      });
-    }
-
-    // Плотность точек
-    const highestDensity = regionMetrics.reduce((max, m) => (m.densityA + m.densityB) > (max.densityA + max.densityB) ? m : max);
-    result.push({ 
-      category: "📍 Density",
-      text: `Highest chain density: ${highestDensity.region.replace(" (England)", "")} (${(highestDensity.densityA + highestDensity.densityB).toFixed(2)} per 1000km²)`,
-      icon: "📍"
-    });
 
     return result;
   }, [regionMetrics, brandA, brandB]);
@@ -461,378 +394,324 @@ const Compare = () => {
   const isLoading = dataLoading || mapLoading;
 
   return (
-    <TooltipProvider>
-      <div className="flex h-screen w-screen overflow-hidden bg-white">
+    <div className="flex h-screen w-screen overflow-hidden bg-white">
 
-        {/* Navbar */}
-        <nav className="w-12 flex-shrink-0 bg-[#1e2128] flex flex-col items-center py-3 gap-1 z-20">
-          <div className="w-8 h-8 mb-4 flex items-center justify-center">
-            <svg viewBox="0 0 107.57 137.26" className="w-5 h-5" fill="#9a9d9e">
-              <path d="M77,60.2c17.98,6.17,31.89-14.53,21.26-30.29C89.01,16.2,73.41,7.2,55.72,7.2C27.33,7.2,4.31,30.4,4.31,59.03c0,33.56,38.08,63.1,48.7,70.68c1.65,1.18,3.78,1.18,5.43,0c5.79-4.13,19.74-14.8,31.24-29.08c8.85-11,3.92-26.29-8.16-33.59c-7.96-4.81-19.96-4.13-23.53,4.45c-1.76,4.23-1.72,8.9,2.87,13.5C71.27,95.39,40.3,98.85,40.3,74.58c0-19.82,21.52-22.05,28.92-17.89C71.88,58.18,74.48,59.33,77,60.2z" />
-            </svg>
-          </div>
-          <button onClick={() => navigate("/")} title="Map" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d3139] transition-colors">
-            <Map className="w-4 h-4" />
-          </button>
-          <button title="Analytics" className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#2d3139] text-white">
-            <BarChart2 className="w-4 h-4" />
-          </button>
-          <button title="List" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d3139] transition-colors">
-            <List className="w-4 h-4" />
-          </button>
-          <button title="Saved" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d3139] transition-colors">
-            <Star className="w-4 h-4" />
-          </button>
-          <div className="flex-1" />
-          <button title="Settings" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white transition-colors">
-            <Settings className="w-4 h-4" />
-          </button>
-          <button title="Logout" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white transition-colors">
-            <LogOut className="w-4 h-4" />
-          </button>
-        </nav>
+      {/* Navbar */}
+      <nav className="w-12 flex-shrink-0 bg-[#1e2128] flex flex-col items-center py-3 gap-1 z-20">
+        <div className="w-8 h-8 mb-4 flex items-center justify-center">
+          <svg viewBox="0 0 107.57 137.26" className="w-5 h-5" fill="#9a9d9e">
+            <path d="M77,60.2c17.98,6.17,31.89-14.53,21.26-30.29C89.01,16.2,73.41,7.2,55.72,7.2C27.33,7.2,4.31,30.4,4.31,59.03c0,33.56,38.08,63.1,48.7,70.68c1.65,1.18,3.78,1.18,5.43,0c5.79-4.13,19.74-14.8,31.24-29.08c8.85-11,3.92-26.29-8.16-33.59c-7.96-4.81-19.96-4.13-23.53,4.45c-1.76,4.23-1.72,8.9,2.87,13.5C71.27,95.39,40.3,98.85,40.3,74.58c0-19.82,21.52-22.05,28.92-17.89C71.88,58.18,74.48,59.33,77,60.2z" />
+          </svg>
+        </div>
+        <button onClick={() => navigate("/")} title="Map" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d3139] transition-colors">
+          <Map className="w-4 h-4" />
+        </button>
+        <button title="Analytics" className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#2d3139] text-white">
+          <BarChart2 className="w-4 h-4" />
+        </button>
+        <button title="List" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d3139] transition-colors">
+          <List className="w-4 h-4" />
+        </button>
+        <button title="Saved" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d3139] transition-colors">
+          <Star className="w-4 h-4" />
+        </button>
+        <div className="flex-1" />
+        <button title="Settings" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white transition-colors">
+          <Settings className="w-4 h-4" />
+        </button>
+        <button title="Logout" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white transition-colors">
+          <LogOut className="w-4 h-4" />
+        </button>
+      </nav>
 
-        {/* Map */}
-        <main className="flex-1 relative">
-          <div ref={mapRef} className="w-full h-full" />
+      {/* Map */}
+      <main className="flex-1 relative">
+        <div ref={mapRef} className="w-full h-full" />
 
-          {/* Layer Control */}
-          <div className="absolute top-5 right-5 z-[1000] bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
-            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Layers</h4>
-            <div className="space-y-1.5">
-              <button
-                onClick={() => setActiveLayer("a")}
-                className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
-                  activeLayer === "a" ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
-                Only {brandA}
-              </button>
-              <button
-                onClick={() => setActiveLayer("b")}
-                className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
-                  activeLayer === "b" ? "bg-orange-50 text-orange-600" : "text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
-                Only {brandB}
-              </button>
-              <button
-                onClick={() => setActiveLayer("both")}
-                className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
-                  activeLayer === "both" ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <div className="flex gap-0.5">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
-                </div>
-                Both brands
-              </button>
-              <button
-                onClick={() => setActiveLayer("conflict")}
-                className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
-                  activeLayer === "conflict" ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                <Sword className="w-3 h-3" />
-                Conflict zones
-              </button>
-            </div>
-          </div>
-
-          {/* Insights - расширенная панель */}
-          {insights.length > 0 && (
-            <div className="absolute bottom-4 left-4 z-[1000] bg-white border border-gray-200 rounded-lg shadow-sm p-3.5"
-                 style={{ right: 170, maxWidth: 350 }}>
-              <div className="flex items-center gap-2 mb-2">
-                <Lightbulb className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
-                <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Insights</h4>
-              </div>
-              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {insights.map((item, i) => {
-                  const Icon = item.icon;
-                  return (
-                    <div key={i} className="text-xs">
-                      <div className="flex items-start gap-1.5">
-                        {typeof Icon === 'string' ? (
-                          <span className="text-xs">{Icon}</span>
-                        ) : Icon ? (
-                          <Icon className="w-3 h-3 mt-0.5 flex-shrink-0 text-gray-400" />
-                        ) : null}
-                        <span className="text-gray-500 leading-tight">· {item.text}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-[1000]">
-              <div className="flex items-center gap-3">
-                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm font-medium text-gray-600">Loading data...</span>
-              </div>
-            </div>
-          )}
-        </main>
-
-        {/* Right panel */}
-        <aside className="w-[440px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col">
-
-          {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
-            <div className="flex items-center gap-1 text-xs text-gray-400 mb-2.5">
-              <button onClick={() => navigate("/")} className="font-medium text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1">
-                <ArrowLeft className="w-3 h-3" />
-                Country Explorer
-              </button>
-              <ChevronRight className="w-3 h-3" />
-              <span className="font-medium text-gray-700">Compare</span>
-            </div>
-            <h1 className="text-sm font-semibold text-gray-900">Brand Comparison</h1>
-            <p className="text-xs text-gray-400 mt-0.5">Great Britain · Head-to-head</p>
-          </div>
-
-          {/* Brand selectors */}
-          <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-1.5">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_A_COLOR }} />
-                  Brand A
-                </label>
-                <select
-                  value={brandA}
-                  onChange={(e) => setBrandA(e.target.value as Brand)}
-                  className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  style={{ borderLeft: `3px solid ${BRAND_A_COLOR}` }}
-                >
-                  {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-1.5">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_B_COLOR }} />
-                  Brand B
-                </label>
-                <select
-                  value={brandB}
-                  onChange={(e) => setBrandB(e.target.value as Brand)}
-                  className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 bg-white focus:ring-1 focus:ring-orange-400 focus:border-orange-400 outline-none"
-                  style={{ borderLeft: `3px solid ${BRAND_B_COLOR}` }}
-                >
-                  {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Ranking section with collapsible Radar */}
-          <div className="border-b border-gray-200">
-            <div 
-              className="px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-gray-50"
-              onClick={() => setShowRadar(!showRadar)}
+        {/* Layer Control */}
+        <div className="absolute top-5 right-5 z-[1000] bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Layers</h4>
+          <div className="space-y-1.5">
+            <button
+              onClick={() => setActiveLayer("a")}
+              className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
+                activeLayer === "a" ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"
+              }`}
             >
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-gray-700">Ranking</span>
-                {selectedRegion && (
-                  <span className="text-[10px] text-gray-400">
-                    {selectedRegion.replace(" (England)", "")}
-                  </span>
-                )}
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
+              Only {brandA}
+            </button>
+            <button
+              onClick={() => setActiveLayer("b")}
+              className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
+                activeLayer === "b" ? "bg-orange-50 text-orange-600" : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
+              Only {brandB}
+            </button>
+            <button
+              onClick={() => setActiveLayer("both")}
+              className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
+                activeLayer === "both" ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <div className="flex gap-0.5">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
               </div>
-              <button className="text-gray-400 hover:text-gray-600">
-                {showRadar ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-            
-            {/* Radar Chart */}
-            {showRadar && selectedRegion && radarData.length > 0 && (
-              <div className="px-4 pb-3">
-                <div className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={radarData}>
-                      <PolarGrid stroke="#e5e7eb" />
-                      <PolarAngleAxis dataKey="metric" tick={{ fontSize: 10, fill: '#6b7280' }} />
-                      <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
-                      <Radar
-                        name={brandA}
-                        dataKey={brandA}
-                        stroke={BRAND_A_COLOR}
-                        fill={BRAND_A_COLOR}
-                        fillOpacity={0.3}
-                      />
-                      <Radar
-                        name={brandB}
-                        dataKey={brandB}
-                        stroke={BRAND_B_COLOR}
-                        fill={BRAND_B_COLOR}
-                        fillOpacity={0.3}
-                      />
-                      <RechartsTooltip content={<CustomRadarTooltip />} />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            )}
-            
-            {/* Empty state when no region selected */}
-            {showRadar && !selectedRegion && (
-              <div className="px-4 pb-3">
-                <div className="h-48 flex items-center justify-center border border-dashed border-gray-200 rounded-lg">
-                  <p className="text-xs text-gray-400">Click on a region to see ranking</p>
-                </div>
-              </div>
-            )}
+              Both brands
+            </button>
+            <button
+              onClick={() => setActiveLayer("conflict")}
+              className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
+                activeLayer === "conflict" ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <Sword className="w-3 h-3" />
+              Conflict zones
+            </button>
           </div>
+        </div>
 
-          {/* Table with tooltips */}
-          <div className="flex-1 overflow-y-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b border-gray-100 bg-gray-50">
-                  <TableHead className="text-[10px] h-8 px-2 font-semibold uppercase tracking-wider text-gray-400 w-[100px]">Region</TableHead>
-                  <TableHead className="text-[10px] h-8 px-1 text-right font-semibold" style={{ color: BRAND_A_COLOR }}>A</TableHead>
-                  <TableHead className="text-[10px] h-8 px-1 text-right font-semibold" style={{ color: BRAND_B_COLOR }}>B</TableHead>
-                  <TableHead className="text-[10px] h-8 px-1 text-right font-semibold uppercase tracking-wider text-gray-400">Δ</TableHead>
-                  
-                  {/* Saturation Gap header with tooltip */}
-                  <TableHead className="text-[10px] h-8 px-1 font-semibold uppercase tracking-wider text-gray-400">
-                    <UITooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1 cursor-help">
-                          <span>Saturation gap</span>
-                          <Info className="w-2.5 h-2.5 text-gray-400" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs max-w-[200px]">
-                        <p>Разница в насыщении между брендами (точек на 100k населения)</p>
-                      </TooltipContent>
-                    </UITooltip>
-                  </TableHead>
-                  
-                  {/* Battle header with tooltip */}
-                  <TableHead className="text-[10px] h-8 px-1 font-semibold uppercase tracking-wider text-gray-400">
-                    <UITooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1 cursor-help">
-                          <span>Battle</span>
-                          <Info className="w-2.5 h-2.5 text-gray-400" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs max-w-[200px]">
-                        <p>Процент точек бренда A, рядом с которыми есть точки бренда B (радиус 500м)</p>
-                      </TooltipContent>
-                    </UITooltip>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {regionMetrics.map((m) => {
-                  const isSelected = selectedRegion === m.region;
-                  const displayName = m.region.replace(" (England)", "");
-                  const delta = Math.abs(m.countA - m.countB);
-                  const leader = m.countA > m.countB ? brandA : brandB;
-                  
-                  return (
-                    <TableRow
-                      key={m.region}
-                      className={`border-b border-gray-50 cursor-pointer transition-colors ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
-                      onClick={() => setSelectedRegion(m.region)}
-                    >
-                      <TableCell className="text-xs py-2 px-2 font-medium">
-                        <span className="text-gray-700 break-words">{displayName}</span>
-                      </TableCell>
-                      <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countA}</TableCell>
-                      <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countB}</TableCell>
-                      
-                      {/* Delta */}
-                      <TableCell className="text-xs py-2 px-1 text-right">
-                        <div className="flex flex-col items-end">
-                          <span className="text-xs font-medium text-gray-800">{delta}</span>
-                          <span className="text-[9px] text-gray-400">{leader}</span>
-                        </div>
-                      </TableCell>
-                      
-                      {/* Saturation Gap with tooltip */}
-                      <TableCell className="text-xs py-2 px-1">
-                        <UITooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex flex-col gap-0.5 cursor-help">
-                              <div className="w-14 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full rounded-full"
-                                  style={{ 
-                                    width: `${Math.min(100, m.saturationGap * 20)}%`,
-                                    backgroundColor: m.saturationA > m.saturationB ? BRAND_A_COLOR : BRAND_B_COLOR
-                                  }}
-                                />
-                              </div>
-                              <span className="text-[9px] text-gray-400 tabular-nums">
-                                {m.saturationGap.toFixed(2)}/100k
-                              </span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">
-                            <p>{brandA}: {m.saturationA.toFixed(2)}/100k</p>
-                            <p>{brandB}: {m.saturationB.toFixed(2)}/100k</p>
-                            <p className="text-gray-500 mt-1">Разрыв: {m.saturationGap.toFixed(2)}/100k</p>
-                          </TooltipContent>
-                        </UITooltip>
-                      </TableCell>
-                      
-                      {/* Battle Index with tooltip */}
-                      <TableCell className="text-xs py-2 px-1">
-                        <UITooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center gap-1 cursor-help">
-                              <Sword className={`w-3 h-3 ${m.battleIndex > 70 ? "text-red-500" : "text-gray-300"}`} />
-                              <span className={`text-xs font-medium ${m.battleIndex > 70 ? "text-red-600" : "text-gray-600"}`}>
-                                {m.battleIndex}%
-                              </span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">
-                            <p>{m.battleIndex}% точек {brandA} имеют точку {brandB} в радиусе 500м</p>
-                            <p className="text-gray-500 mt-1">
-                              {m.battleIndex > 70 ? "🔥 Высокая конкуренция" : 
-                               m.battleIndex > 40 ? "⚡ Средняя конкуренция" : 
-                               "🕊️ Низкая конкуренция"}
-                            </p>
-                          </TooltipContent>
-                        </UITooltip>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+        {/* Insights */}
+        {insights.length > 0 && (
+          <div className="absolute bottom-4 left-4 z-[1000] bg-white border border-gray-200 rounded-lg shadow-sm p-3.5"
+               style={{ right: 170 }}>
+            <div className="flex items-center gap-2 mb-2">
+              <Lightbulb className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Insights</h4>
+            </div>
+            <div className="space-y-1">
+              {insights.map((item, i) => {
+                const Icon = item.icon;
+                return (
+                  <p key={i} className="text-xs text-gray-500 flex items-start gap-1.5">
+                    {Icon && <Icon className="w-3 h-3 mt-0.5 flex-shrink-0 text-gray-400" />}
+                    <span>· {item.text}</span>
+                  </p>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
-                {regionMetrics.length > 0 && (
-                  <TableRow className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
-                    <TableCell className="text-xs py-2 px-2 font-bold">Total</TableCell>
-                    <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalA}</TableCell>
-                    <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalB}</TableCell>
-                    <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalDelta}</TableCell>
-                    <TableCell className="text-xs py-2 px-1">
-                      <span className="text-[10px] text-gray-500">avg {totals.avgSaturationGap}</span>
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-[1000]">
+            <div className="flex items-center gap-3">
+              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm font-medium text-gray-600">Loading data...</span>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Right panel */}
+      <aside className="w-[440px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col">
+
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
+          <div className="flex items-center gap-1 text-xs text-gray-400 mb-2.5">
+            <button onClick={() => navigate("/")} className="font-medium text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1">
+              <ArrowLeft className="w-3 h-3" />
+              Country Explorer
+            </button>
+            <ChevronRight className="w-3 h-3" />
+            <span className="font-medium text-gray-700">Compare</span>
+          </div>
+          <h1 className="text-sm font-semibold text-gray-900">Brand Comparison</h1>
+          <p className="text-xs text-gray-400 mt-0.5">Great Britain · Head-to-head</p>
+        </div>
+
+        {/* Brand selectors */}
+        <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-1.5">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_A_COLOR }} />
+                Brand A
+              </label>
+              <select
+                value={brandA}
+                onChange={(e) => setBrandA(e.target.value as Brand)}
+                className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                style={{ borderLeft: `3px solid ${BRAND_A_COLOR}` }}
+              >
+                {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-1.5">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_B_COLOR }} />
+                Brand B
+              </label>
+              <select
+                value={brandB}
+                onChange={(e) => setBrandB(e.target.value as Brand)}
+                className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 bg-white focus:ring-1 focus:ring-orange-400 focus:border-orange-400 outline-none"
+                style={{ borderLeft: `3px solid ${BRAND_B_COLOR}` }}
+              >
+                {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Ranking section with collapsible Radar */}
+        <div className="border-b border-gray-200">
+          <div 
+            className="px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+            onClick={() => setShowRadar(!showRadar)}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-gray-700">Ranking</span>
+              {selectedRegion && (
+                <span className="text-[10px] text-gray-400">
+                  {selectedRegion.replace(" (England)", "")}
+                </span>
+              )}
+            </div>
+            <button className="text-gray-400 hover:text-gray-600">
+              {showRadar ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+          
+          {/* Radar Chart */}
+          {showRadar && selectedRegion && radarData.length > 0 && (
+            <div className="px-4 pb-3">
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={radarData}>
+                    <PolarGrid stroke="#e5e7eb" />
+                    <PolarAngleAxis dataKey="metric" tick={{ fontSize: 10, fill: '#6b7280' }} />
+                    <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
+                    <Radar
+                      name={brandA}
+                      dataKey={brandA}
+                      stroke={BRAND_A_COLOR}
+                      fill={BRAND_A_COLOR}
+                      fillOpacity={0.3}
+                    />
+                    <Radar
+                      name={brandB}
+                      dataKey={brandB}
+                      stroke={BRAND_B_COLOR}
+                      fill={BRAND_B_COLOR}
+                      fillOpacity={0.3}
+                    />
+                    <Tooltip 
+                      contentStyle={{ fontSize: 11, padding: '4px 8px' }}
+                      formatter={(value: any) => [`${value}%`, '']}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+          
+          {/* Empty state when no region selected */}
+          {showRadar && !selectedRegion && (
+            <div className="px-4 pb-3">
+              <div className="h-48 flex items-center justify-center border border-dashed border-gray-200 rounded-lg">
+                <p className="text-xs text-gray-400">Click on a region to see ranking</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Table */}
+        <div className="flex-1 overflow-y-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-b border-gray-100 bg-gray-50">
+                <TableHead className="text-[10px] h-8 px-2 font-semibold uppercase tracking-wider text-gray-400 w-[100px]">Region</TableHead>
+                <TableHead className="text-[10px] h-8 px-1 text-right font-semibold" style={{ color: BRAND_A_COLOR }}>A</TableHead>
+                <TableHead className="text-[10px] h-8 px-1 text-right font-semibold" style={{ color: BRAND_B_COLOR }}>B</TableHead>
+                <TableHead className="text-[10px] h-8 px-1 text-right font-semibold uppercase tracking-wider text-gray-400">Δ</TableHead>
+                <TableHead className="text-[10px] h-8 px-1 font-semibold uppercase tracking-wider text-gray-400">Saturation gap</TableHead>
+                <TableHead className="text-[10px] h-8 px-1 font-semibold uppercase tracking-wider text-gray-400">Battle</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {regionMetrics.map((m) => {
+                const isSelected = selectedRegion === m.region;
+                const displayName = m.region.replace(" (England)", "");
+                const delta = Math.abs(m.countA - m.countB);
+                const leader = m.countA > m.countB ? brandA : brandB;
+                
+                return (
+                  <TableRow
+                    key={m.region}
+                    className={`border-b border-gray-50 cursor-pointer transition-colors ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                    onClick={() => setSelectedRegion(m.region)}
+                  >
+                    <TableCell className="text-xs py-2 px-2 font-medium">
+                      <span className="text-gray-700 break-words">{displayName}</span>
                     </TableCell>
+                    <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countA}</TableCell>
+                    <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countB}</TableCell>
+                    
+                    {/* Delta */}
+                    <TableCell className="text-xs py-2 px-1 text-right">
+                      <div className="flex flex-col items-end">
+                        <span className="text-xs font-medium text-gray-800">{delta}</span>
+                        <span className="text-[9px] text-gray-400">{leader}</span>
+                      </div>
+                    </TableCell>
+                    
+                    {/* Saturation Gap */}
+                    <TableCell className="text-xs py-2 px-1">
+                      <div className="flex flex-col gap-0.5">
+                        <div className="w-14 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full rounded-full"
+                            style={{ 
+                              width: `${Math.min(100, m.saturationGap * 20)}%`,
+                              backgroundColor: m.saturationA > m.saturationB ? BRAND_A_COLOR : BRAND_B_COLOR
+                            }}
+                          />
+                        </div>
+                        <span className="text-[9px] text-gray-400 tabular-nums">
+                          {m.saturationGap.toFixed(2)}/100k
+                        </span>
+                      </div>
+                    </TableCell>
+                    
+                    {/* Battle Index */}
                     <TableCell className="text-xs py-2 px-1">
                       <div className="flex items-center gap-1">
-                        <Sword className="w-3 h-3 text-gray-400" />
-                        <span className="text-xs font-medium text-gray-600">{totals.avgBattle}%</span>
+                        <Sword className={`w-3 h-3 ${m.battleIndex > 70 ? "text-red-500" : "text-gray-300"}`} />
+                        <span className={`text-xs font-medium ${m.battleIndex > 70 ? "text-red-600" : "text-gray-600"}`}>
+                          {m.battleIndex}%
+                        </span>
                       </div>
                     </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </aside>
-      </div>
-    </TooltipProvider>
+                );
+              })}
+
+              {regionMetrics.length > 0 && (
+                <TableRow className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+                  <TableCell className="text-xs py-2 px-2 font-bold">Total</TableCell>
+                  <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalA}</TableCell>
+                  <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalB}</TableCell>
+                  <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalDelta}</TableCell>
+                  <TableCell className="text-xs py-2 px-1">
+                    <span className="text-[10px] text-gray-500">avg {totals.avgSaturationGap}</span>
+                  </TableCell>
+                  <TableCell className="text-xs py-2 px-1">
+                    <div className="flex items-center gap-1">
+                      <Sword className="w-3 h-3 text-gray-400" />
+                      <span className="text-xs font-medium text-gray-600">{totals.avgBattle}%</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </aside>
+    </div>
   );
 };
 
