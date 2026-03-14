@@ -677,6 +677,18 @@ const Index = () => {
     setAllRegionsStats(stats);
   }, [regionsGeoJson, restaurants, selectedBrands]);
 
+  // Расчет среднего количества точек по всем регионам
+  const avgLocations = useMemo(() => {
+    if (!allRegionsStats || Object.keys(allRegionsStats).length === 0) return 0;
+    
+    const totalLocations = Object.values(allRegionsStats).reduce(
+      (sum, stats) => sum + (stats?.totalPoints || 0), 
+      0
+    );
+    
+    return Math.round(totalLocations / Object.keys(allRegionsStats).length);
+  }, [allRegionsStats]);
+
   const handleRegionStats = useCallback((stats: RegionStats | null) => {
     setRegionStats(stats);
     
@@ -1016,6 +1028,7 @@ const Index = () => {
                 selectedRegion={selectedRegion}
                 regionStats={regionStats}
                 onClearRegion={() => handleSelectRegion(null)}
+                avgLocations={avgLocations}
               />
             </aside>
           )}
