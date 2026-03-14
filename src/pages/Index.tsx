@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Map, BarChart2, List, Star, Settings, LogOut,
   Search, ChevronLeft, ChevronRight, X, Download, Globe, Menu,
-  TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown, Sparkles
+  TrendingUp, TrendingDown, Sparkles
 } from "lucide-react";
 import RegionMap from "@/components/RegionMap";
 import BrandFilters from "@/components/BrandFilters";
@@ -101,24 +101,24 @@ const getIndicatorColor = (value: number | null, metric: string): string => {
   if (value === null) return "text-gray-400";
   
   if (metric === "saturation") {
-    if (value < COUNTRY_AVG.saturation * 0.8) return "text-emerald-600"; // Очень низкая
-    if (value < COUNTRY_AVG.saturation) return "text-emerald-500"; // Низкая
-    if (value < COUNTRY_AVG.saturation * 1.2) return "text-yellow-500"; // Средняя
-    return "text-red-500"; // Высокая
+    if (value < COUNTRY_AVG.saturation * 0.8) return "text-emerald-600";
+    if (value < COUNTRY_AVG.saturation) return "text-emerald-500";
+    if (value < COUNTRY_AVG.saturation * 1.2) return "text-yellow-500";
+    return "text-red-500";
   }
   
   if (metric === "density") {
-    if (value < COUNTRY_AVG.chainDensity * 0.8) return "text-emerald-600"; // Очень низкая
-    if (value < COUNTRY_AVG.chainDensity) return "text-emerald-500"; // Низкая
-    if (value < COUNTRY_AVG.chainDensity * 1.2) return "text-yellow-500"; // Средняя
-    return "text-red-500"; // Высокая
+    if (value < COUNTRY_AVG.chainDensity * 0.8) return "text-emerald-600";
+    if (value < COUNTRY_AVG.chainDensity) return "text-emerald-500";
+    if (value < COUNTRY_AVG.chainDensity * 1.2) return "text-yellow-500";
+    return "text-red-500";
   }
   
   if (metric === "growth") {
-    if (value > COUNTRY_AVG.growthRate * 1.5) return "text-emerald-600"; // Очень высокий рост
-    if (value > COUNTRY_AVG.growthRate) return "text-emerald-500"; // Высокий рост
-    if (value > 0) return "text-yellow-500"; // Положительный
-    return "text-red-500"; // Отрицательный
+    if (value > COUNTRY_AVG.growthRate * 1.5) return "text-emerald-600";
+    if (value > COUNTRY_AVG.growthRate) return "text-emerald-500";
+    if (value > 0) return "text-yellow-500";
+    return "text-red-500";
   }
   
   return "text-gray-900";
@@ -159,7 +159,143 @@ const Sparkline = ({ data }: { data: number[] }) => {
   );
 };
 
-// Компонент RankingModal
+// ── Nav button ────────────────────────────────────────────────
+const NavBtn = ({
+  icon, label, active = false, onClick
+}: {icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void;}) => (
+  <div className="relative group" style={{ isolation: "isolate" }}>
+    <button
+      onClick={onClick}
+      className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+        active ? "bg-[#2d3139] text-white" : "text-[#6b7280] hover:text-white hover:bg-[#2d3139]"
+      }`}
+    >
+      {icon}
+    </button>
+    <span
+      className="pointer-events-none absolute left-12 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-[11px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
+      style={{ zIndex: 9999 }}
+    >
+      {label}
+    </span>
+  </div>
+);
+
+const Sep = () => <span className="text-gray-300 text-xs select-none mx-1.5">·</span>;
+
+// Серый информационный чип (без крестика)
+const InfoChip = ({ label }: {label: string;}) => (
+  <span className="text-[11px] text-gray-400 font-light select-none whitespace-nowrap tracking-normal">{label}</span>
+);
+
+// Синий чип для выбранного региона
+const RegionChip = ({ label, onRemove }: {label: string; onRemove: () => void;}) => (
+  <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium border border-blue-100 select-none whitespace-nowrap">
+    {label}
+    <button onClick={onRemove} className="hover:text-blue-800 ml-0.5 flex-shrink-0">
+      <X className="w-2.5 h-2.5" />
+    </button>
+  </span>
+);
+
+// Чип для Great Britain (как регион с крестиком)
+const CountryChip = ({ label, onRemove }: {label: string; onRemove: () => void;}) => (
+  <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full font-medium border border-gray-200 select-none whitespace-nowrap">
+    {label}
+    <button onClick={onRemove} className="hover:text-gray-900 ml-0.5 flex-shrink-0">
+      <X className="w-2.5 h-2.5" />
+    </button>
+  </span>
+);
+
+// ── Кнопка сворачивания панели ───────────────────────────────
+const SidebarToggle = ({ isOpen, onClick }: {isOpen: boolean; onClick: () => void;}) => (
+  <button
+    onClick={onClick}
+    className="absolute top-1/2 transform -translate-y-1/2 w-6 h-12 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-r-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-white transition-all z-[1000]"
+    style={{
+      left: isOpen ? '263px' : '-1px',
+      transition: 'left 0.2s ease-in-out',
+      backdropFilter: 'blur(4px)',
+      boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+      pointerEvents: 'auto'
+    }}
+  >
+    {isOpen ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+  </button>
+);
+
+// ── Компонент выбора региона (поверх карты) ──────────────────
+const RegionSelector = ({ isOpen, onClose, onSelectRegion, selectedRegion }: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSelectRegion: (region: string | null) => void;
+  selectedRegion: string | null;
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <>
+      <div 
+        className="fixed inset-0 bg-black/20 z-[1001]" 
+        onClick={onClose}
+      />
+      
+      <div 
+        className="absolute top-12 left-1/2 transform -translate-x-1/2 w-64 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl border border-blue-200 z-[1002] overflow-hidden"
+        style={{ backdropFilter: 'blur(8px)' }}
+      >
+        <div className="p-2 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
+          <span className="text-xs font-medium text-blue-700">Select region</span>
+          <button onClick={onClose} className="text-blue-400 hover:text-blue-600">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        
+        <div className="max-h-60 overflow-y-auto py-1">
+          <div
+            className={`flex items-center px-3 py-2 text-xs cursor-pointer hover:bg-blue-50 transition-colors ${
+              !selectedRegion ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+            }`}
+            onClick={() => {
+              onSelectRegion(null);
+              onClose();
+            }}
+          >
+            All regions
+            {!selectedRegion && (
+              <svg className="w-3 h-3 text-blue-600 ml-auto" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            )}
+          </div>
+          
+          {DISPLAY_REGIONS.map((r) => (
+            <div
+              key={r}
+              className={`flex items-center px-3 py-2 text-xs cursor-pointer hover:bg-blue-50 transition-colors ${
+                selectedRegion === r ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+              }`}
+              onClick={() => {
+                onSelectRegion(r);
+                onClose();
+              }}
+            >
+              {r}
+              {selectedRegion === r && (
+                <svg className="w-3 h-3 text-blue-600 ml-auto" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+};
+
+// ── Компонент RankingModal ───────────────────────────────────
 const RankingModal = ({ 
   isOpen, 
   onClose, 
@@ -466,142 +602,6 @@ const RankingModal = ({
             </div>
           </div>
           <div>Click any row to focus region on map</div>
-        </div>
-      </div>
-    </>
-  );
-};
-
-// ── Nav button ────────────────────────────────────────────────
-const NavBtn = ({
-  icon, label, active = false, onClick
-}: {icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void;}) => (
-  <div className="relative group" style={{ isolation: "isolate" }}>
-    <button
-      onClick={onClick}
-      className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-        active ? "bg-[#2d3139] text-white" : "text-[#6b7280] hover:text-white hover:bg-[#2d3139]"
-      }`}
-    >
-      {icon}
-    </button>
-    <span
-      className="pointer-events-none absolute left-12 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-[11px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
-      style={{ zIndex: 9999 }}
-    >
-      {label}
-    </span>
-  </div>
-);
-
-const Sep = () => <span className="text-gray-300 text-xs select-none mx-1.5">·</span>;
-
-// Серый информационный чип (без крестика)
-const InfoChip = ({ label }: {label: string;}) => (
-  <span className="text-[11px] text-gray-400 font-light select-none whitespace-nowrap tracking-normal">{label}</span>
-);
-
-// Синий чип для выбранного региона
-const RegionChip = ({ label, onRemove }: {label: string; onRemove: () => void;}) => (
-  <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full font-medium border border-blue-100 select-none whitespace-nowrap">
-    {label}
-    <button onClick={onRemove} className="hover:text-blue-800 ml-0.5 flex-shrink-0">
-      <X className="w-2.5 h-2.5" />
-    </button>
-  </span>
-);
-
-// Чип для Great Britain (как регион с крестиком)
-const CountryChip = ({ label, onRemove }: {label: string; onRemove: () => void;}) => (
-  <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full font-medium border border-gray-200 select-none whitespace-nowrap">
-    {label}
-    <button onClick={onRemove} className="hover:text-gray-900 ml-0.5 flex-shrink-0">
-      <X className="w-2.5 h-2.5" />
-    </button>
-  </span>
-);
-
-// ── Кнопка сворачивания панели ───────────────────────────────
-const SidebarToggle = ({ isOpen, onClick }: {isOpen: boolean; onClick: () => void;}) => (
-  <button
-    onClick={onClick}
-    className="absolute top-1/2 transform -translate-y-1/2 w-6 h-12 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-r-lg shadow-md flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-white transition-all z-[1000]"
-    style={{
-      left: isOpen ? '263px' : '-1px',
-      transition: 'left 0.2s ease-in-out',
-      backdropFilter: 'blur(4px)',
-      boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
-      pointerEvents: 'auto'
-    }}
-  >
-    {isOpen ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-  </button>
-);
-
-// ── Компонент выбора региона (поверх карты) ──────────────────
-const RegionSelector = ({ isOpen, onClose, onSelectRegion, selectedRegion }: {
-  isOpen: boolean;
-  onClose: () => void;
-  onSelectRegion: (region: string | null) => void;
-  selectedRegion: string | null;
-}) => {
-  if (!isOpen) return null;
-
-  return (
-    <>
-      <div 
-        className="fixed inset-0 bg-black/20 z-[1001]" 
-        onClick={onClose}
-      />
-      
-      <div 
-        className="absolute top-12 left-1/2 transform -translate-x-1/2 w-64 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl border border-blue-200 z-[1002] overflow-hidden"
-        style={{ backdropFilter: 'blur(8px)' }}
-      >
-        <div className="p-2 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
-          <span className="text-xs font-medium text-blue-700">Select region</span>
-          <button onClick={onClose} className="text-blue-400 hover:text-blue-600">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-        
-        <div className="max-h-60 overflow-y-auto py-1">
-          <div
-            className={`flex items-center px-3 py-2 text-xs cursor-pointer hover:bg-blue-50 transition-colors ${
-              !selectedRegion ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-            }`}
-            onClick={() => {
-              onSelectRegion(null);
-              onClose();
-            }}
-          >
-            All regions
-            {!selectedRegion && (
-              <svg className="w-3 h-3 text-blue-600 ml-auto" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            )}
-          </div>
-          
-          {DISPLAY_REGIONS.map((r) => (
-            <div
-              key={r}
-              className={`flex items-center px-3 py-2 text-xs cursor-pointer hover:bg-blue-50 transition-colors ${
-                selectedRegion === r ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
-              }`}
-              onClick={() => {
-                onSelectRegion(r);
-                onClose();
-              }}
-            >
-              {r}
-              {selectedRegion === r && (
-                <svg className="w-3 h-3 text-blue-600 ml-auto" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              )}
-            </div>
-          ))}
         </div>
       </div>
     </>
@@ -969,25 +969,6 @@ const Index = () => {
           )}
         </div>
       </div>
-
-      {/* Глобальные стили для скроллбара модального окна */}
-      <style>{`
-        .modal-scrollbar::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
-        }
-        .modal-scrollbar::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 10px;
-        }
-        .modal-scrollbar::-webkit-scrollbar-thumb {
-          background: #c1c1c1;
-          border-radius: 10px;
-        }
-        .modal-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #a1a1a1;
-        }
-      `}</style>
     </div>
   );
 };
