@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Lightbulb, Map, BarChart2, List, Star, Settings, LogOut, ChevronRight, Crosshair, Target, Sword, Radio, Plus, Minus } from "lucide-react";
+import { ArrowLeft, Lightbulb, Map, BarChart2, List, Star, Settings, LogOut, ChevronRight, Crosshair, Target, Sword, Radio, Plus, Minus, Info } from "lucide-react";
 import L from "leaflet";
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
 import { point as turfPoint } from "@turf/helpers";
@@ -10,7 +10,13 @@ import { getRegionPopulation, getRegionArea } from "@/data/regionPopulation";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend, ResponsiveContainer, Tooltip } from 'recharts';
+import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 
 const BRAND_A_COLOR = "#3B82F6";
 const BRAND_B_COLOR = "#F97316";
@@ -79,6 +85,25 @@ function calculateBattleIndex(
   
   return Math.round((hasNearby / pointsA.length) * 100);
 }
+
+// Кастомный тултип для Radar chart в стиле Country Explorer
+const CustomRadarTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-4 py-2 text-xs">
+        <p className="text-gray-300 mb-1.5">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+            <span style={{ color: entry.color }}>{entry.name}:</span>
+            <span className="text-white font-medium ml-auto">{entry.value}%</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
 
 const Compare = () => {
   const navigate = useNavigate();
@@ -394,324 +419,351 @@ const Compare = () => {
   const isLoading = dataLoading || mapLoading;
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-white">
+    <TooltipProvider>
+      <div className="flex h-screen w-screen overflow-hidden bg-white">
 
-      {/* Navbar */}
-      <nav className="w-12 flex-shrink-0 bg-[#1e2128] flex flex-col items-center py-3 gap-1 z-20">
-        <div className="w-8 h-8 mb-4 flex items-center justify-center">
-          <svg viewBox="0 0 107.57 137.26" className="w-5 h-5" fill="#9a9d9e">
-            <path d="M77,60.2c17.98,6.17,31.89-14.53,21.26-30.29C89.01,16.2,73.41,7.2,55.72,7.2C27.33,7.2,4.31,30.4,4.31,59.03c0,33.56,38.08,63.1,48.7,70.68c1.65,1.18,3.78,1.18,5.43,0c5.79-4.13,19.74-14.8,31.24-29.08c8.85-11,3.92-26.29-8.16-33.59c-7.96-4.81-19.96-4.13-23.53,4.45c-1.76,4.23-1.72,8.9,2.87,13.5C71.27,95.39,40.3,98.85,40.3,74.58c0-19.82,21.52-22.05,28.92-17.89C71.88,58.18,74.48,59.33,77,60.2z" />
-          </svg>
-        </div>
-        <button onClick={() => navigate("/")} title="Map" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d3139] transition-colors">
-          <Map className="w-4 h-4" />
-        </button>
-        <button title="Analytics" className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#2d3139] text-white">
-          <BarChart2 className="w-4 h-4" />
-        </button>
-        <button title="List" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d3139] transition-colors">
-          <List className="w-4 h-4" />
-        </button>
-        <button title="Saved" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d3139] transition-colors">
-          <Star className="w-4 h-4" />
-        </button>
-        <div className="flex-1" />
-        <button title="Settings" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white transition-colors">
-          <Settings className="w-4 h-4" />
-        </button>
-        <button title="Logout" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white transition-colors">
-          <LogOut className="w-4 h-4" />
-        </button>
-      </nav>
+        {/* Navbar */}
+        <nav className="w-12 flex-shrink-0 bg-[#1e2128] flex flex-col items-center py-3 gap-1 z-20">
+          <div className="w-8 h-8 mb-4 flex items-center justify-center">
+            <svg viewBox="0 0 107.57 137.26" className="w-5 h-5" fill="#9a9d9e">
+              <path d="M77,60.2c17.98,6.17,31.89-14.53,21.26-30.29C89.01,16.2,73.41,7.2,55.72,7.2C27.33,7.2,4.31,30.4,4.31,59.03c0,33.56,38.08,63.1,48.7,70.68c1.65,1.18,3.78,1.18,5.43,0c5.79-4.13,19.74-14.8,31.24-29.08c8.85-11,3.92-26.29-8.16-33.59c-7.96-4.81-19.96-4.13-23.53,4.45c-1.76,4.23-1.72,8.9,2.87,13.5C71.27,95.39,40.3,98.85,40.3,74.58c0-19.82,21.52-22.05,28.92-17.89C71.88,58.18,74.48,59.33,77,60.2z" />
+            </svg>
+          </div>
+          <button onClick={() => navigate("/")} title="Map" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d3139] transition-colors">
+            <Map className="w-4 h-4" />
+          </button>
+          <button title="Analytics" className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#2d3139] text-white">
+            <BarChart2 className="w-4 h-4" />
+          </button>
+          <button title="List" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d3139] transition-colors">
+            <List className="w-4 h-4" />
+          </button>
+          <button title="Saved" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d3139] transition-colors">
+            <Star className="w-4 h-4" />
+          </button>
+          <div className="flex-1" />
+          <button title="Settings" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white transition-colors">
+            <Settings className="w-4 h-4" />
+          </button>
+          <button title="Logout" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#6b7280] hover:text-white transition-colors">
+            <LogOut className="w-4 h-4" />
+          </button>
+        </nav>
 
-      {/* Map */}
-      <main className="flex-1 relative">
-        <div ref={mapRef} className="w-full h-full" />
+        {/* Map */}
+        <main className="flex-1 relative">
+          <div ref={mapRef} className="w-full h-full" />
 
-        {/* Layer Control */}
-        <div className="absolute top-5 right-5 z-[1000] bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
-          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Layers</h4>
-          <div className="space-y-1.5">
-            <button
-              onClick={() => setActiveLayer("a")}
-              className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
-                activeLayer === "a" ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
-              Only {brandA}
-            </button>
-            <button
-              onClick={() => setActiveLayer("b")}
-              className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
-                activeLayer === "b" ? "bg-orange-50 text-orange-600" : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
-              Only {brandB}
-            </button>
-            <button
-              onClick={() => setActiveLayer("both")}
-              className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
-                activeLayer === "both" ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <div className="flex gap-0.5">
+          {/* Layer Control */}
+          <div className="absolute top-5 right-5 z-[1000] bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+            <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Layers</h4>
+            <div className="space-y-1.5">
+              <button
+                onClick={() => setActiveLayer("a")}
+                className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
+                  activeLayer === "a" ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
+                Only {brandA}
+              </button>
+              <button
+                onClick={() => setActiveLayer("b")}
+                className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
+                  activeLayer === "b" ? "bg-orange-50 text-orange-600" : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
+                Only {brandB}
+              </button>
+              <button
+                onClick={() => setActiveLayer("both")}
+                className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
+                  activeLayer === "both" ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <div className="flex gap-0.5">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
+                </div>
+                Both brands
+              </button>
+              <button
+                onClick={() => setActiveLayer("conflict")}
+                className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
+                  activeLayer === "conflict" ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <Sword className="w-3 h-3" />
+                Conflict zones
+              </button>
+            </div>
+          </div>
+
+          {/* Insights */}
+          {insights.length > 0 && (
+            <div className="absolute bottom-4 left-4 z-[1000] bg-white border border-gray-200 rounded-lg shadow-sm p-3.5"
+                 style={{ right: 170 }}>
+              <div className="flex items-center gap-2 mb-2">
+                <Lightbulb className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Insights</h4>
               </div>
-              Both brands
-            </button>
-            <button
-              onClick={() => setActiveLayer("conflict")}
-              className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
-                activeLayer === "conflict" ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"
-              }`}
+              <div className="space-y-1">
+                {insights.map((item, i) => {
+                  const Icon = item.icon;
+                  return (
+                    <p key={i} className="text-xs text-gray-500 flex items-start gap-1.5">
+                      {Icon && <Icon className="w-3 h-3 mt-0.5 flex-shrink-0 text-gray-400" />}
+                      <span>· {item.text}</span>
+                    </p>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-[1000]">
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm font-medium text-gray-600">Loading data...</span>
+              </div>
+            </div>
+          )}
+        </main>
+
+        {/* Right panel */}
+        <aside className="w-[440px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col">
+
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
+            <div className="flex items-center gap-1 text-xs text-gray-400 mb-2.5">
+              <button onClick={() => navigate("/")} className="font-medium text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1">
+                <ArrowLeft className="w-3 h-3" />
+                Country Explorer
+              </button>
+              <ChevronRight className="w-3 h-3" />
+              <span className="font-medium text-gray-700">Compare</span>
+            </div>
+            <h1 className="text-sm font-semibold text-gray-900">Brand Comparison</h1>
+            <p className="text-xs text-gray-400 mt-0.5">Great Britain · Head-to-head</p>
+          </div>
+
+          {/* Brand selectors */}
+          <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-1.5">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_A_COLOR }} />
+                  Brand A
+                </label>
+                <select
+                  value={brandA}
+                  onChange={(e) => setBrandA(e.target.value as Brand)}
+                  className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  style={{ borderLeft: `3px solid ${BRAND_A_COLOR}` }}
+                >
+                  {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-1.5">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_B_COLOR }} />
+                  Brand B
+                </label>
+                <select
+                  value={brandB}
+                  onChange={(e) => setBrandB(e.target.value as Brand)}
+                  className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 bg-white focus:ring-1 focus:ring-orange-400 focus:border-orange-400 outline-none"
+                  style={{ borderLeft: `3px solid ${BRAND_B_COLOR}` }}
+                >
+                  {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Ranking section with collapsible Radar */}
+          <div className="border-b border-gray-200">
+            <div 
+              className="px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+              onClick={() => setShowRadar(!showRadar)}
             >
-              <Sword className="w-3 h-3" />
-              Conflict zones
-            </button>
-          </div>
-        </div>
-
-        {/* Insights */}
-        {insights.length > 0 && (
-          <div className="absolute bottom-4 left-4 z-[1000] bg-white border border-gray-200 rounded-lg shadow-sm p-3.5"
-               style={{ right: 170 }}>
-            <div className="flex items-center gap-2 mb-2">
-              <Lightbulb className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
-              <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Insights</h4>
-            </div>
-            <div className="space-y-1">
-              {insights.map((item, i) => {
-                const Icon = item.icon;
-                return (
-                  <p key={i} className="text-xs text-gray-500 flex items-start gap-1.5">
-                    {Icon && <Icon className="w-3 h-3 mt-0.5 flex-shrink-0 text-gray-400" />}
-                    <span>· {item.text}</span>
-                  </p>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-[1000]">
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm font-medium text-gray-600">Loading data...</span>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* Right panel */}
-      <aside className="w-[440px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col">
-
-        {/* Header */}
-        <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
-          <div className="flex items-center gap-1 text-xs text-gray-400 mb-2.5">
-            <button onClick={() => navigate("/")} className="font-medium text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1">
-              <ArrowLeft className="w-3 h-3" />
-              Country Explorer
-            </button>
-            <ChevronRight className="w-3 h-3" />
-            <span className="font-medium text-gray-700">Compare</span>
-          </div>
-          <h1 className="text-sm font-semibold text-gray-900">Brand Comparison</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Great Britain · Head-to-head</p>
-        </div>
-
-        {/* Brand selectors */}
-        <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-1.5">
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_A_COLOR }} />
-                Brand A
-              </label>
-              <select
-                value={brandA}
-                onChange={(e) => setBrandA(e.target.value as Brand)}
-                className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                style={{ borderLeft: `3px solid ${BRAND_A_COLOR}` }}
-              >
-                {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-1.5">
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_B_COLOR }} />
-                Brand B
-              </label>
-              <select
-                value={brandB}
-                onChange={(e) => setBrandB(e.target.value as Brand)}
-                className="w-full border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-900 bg-white focus:ring-1 focus:ring-orange-400 focus:border-orange-400 outline-none"
-                style={{ borderLeft: `3px solid ${BRAND_B_COLOR}` }}
-              >
-                {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Ranking section with collapsible Radar */}
-        <div className="border-b border-gray-200">
-          <div 
-            className="px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-gray-50"
-            onClick={() => setShowRadar(!showRadar)}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-700">Ranking</span>
-              {selectedRegion && (
-                <span className="text-[10px] text-gray-400">
-                  {selectedRegion.replace(" (England)", "")}
-                </span>
-              )}
-            </div>
-            <button className="text-gray-400 hover:text-gray-600">
-              {showRadar ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-          
-          {/* Radar Chart */}
-          {showRadar && selectedRegion && radarData.length > 0 && (
-            <div className="px-4 pb-3">
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={radarData}>
-                    <PolarGrid stroke="#e5e7eb" />
-                    <PolarAngleAxis dataKey="metric" tick={{ fontSize: 10, fill: '#6b7280' }} />
-                    <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
-                    <Radar
-                      name={brandA}
-                      dataKey={brandA}
-                      stroke={BRAND_A_COLOR}
-                      fill={BRAND_A_COLOR}
-                      fillOpacity={0.3}
-                    />
-                    <Radar
-                      name={brandB}
-                      dataKey={brandB}
-                      stroke={BRAND_B_COLOR}
-                      fill={BRAND_B_COLOR}
-                      fillOpacity={0.3}
-                    />
-                    <Tooltip 
-                      contentStyle={{ fontSize: 11, padding: '4px 8px' }}
-                      formatter={(value: any) => [`${value}%`, '']}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-gray-700">Ranking</span>
+                {selectedRegion && (
+                  <span className="text-[10px] text-gray-400">
+                    {selectedRegion.replace(" (England)", "")}
+                  </span>
+                )}
               </div>
+              <button className="text-gray-400 hover:text-gray-600">
+                {showRadar ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+              </button>
             </div>
-          )}
-          
-          {/* Empty state when no region selected */}
-          {showRadar && !selectedRegion && (
-            <div className="px-4 pb-3">
-              <div className="h-48 flex items-center justify-center border border-dashed border-gray-200 rounded-lg">
-                <p className="text-xs text-gray-400">Click on a region to see ranking</p>
+            
+            {/* Radar Chart */}
+            {showRadar && selectedRegion && radarData.length > 0 && (
+              <div className="px-4 pb-3">
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={radarData}>
+                      <PolarGrid stroke="#e5e7eb" />
+                      <PolarAngleAxis dataKey="metric" tick={{ fontSize: 10, fill: '#6b7280' }} />
+                      <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
+                      <Radar
+                        name={brandA}
+                        dataKey={brandA}
+                        stroke={BRAND_A_COLOR}
+                        fill={BRAND_A_COLOR}
+                        fillOpacity={0.3}
+                      />
+                      <Radar
+                        name={brandB}
+                        dataKey={brandB}
+                        stroke={BRAND_B_COLOR}
+                        fill={BRAND_B_COLOR}
+                        fillOpacity={0.3}
+                      />
+                      <RechartsTooltip content={<CustomRadarTooltip />} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+            
+            {/* Empty state when no region selected */}
+            {showRadar && !selectedRegion && (
+              <div className="px-4 pb-3">
+                <div className="h-48 flex items-center justify-center border border-dashed border-gray-200 rounded-lg">
+                  <p className="text-xs text-gray-400">Click on a region to see ranking</p>
+                </div>
+              </div>
+            )}
+          </div>
 
-        {/* Table */}
-        <div className="flex-1 overflow-y-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-b border-gray-100 bg-gray-50">
-                <TableHead className="text-[10px] h-8 px-2 font-semibold uppercase tracking-wider text-gray-400 w-[100px]">Region</TableHead>
-                <TableHead className="text-[10px] h-8 px-1 text-right font-semibold" style={{ color: BRAND_A_COLOR }}>A</TableHead>
-                <TableHead className="text-[10px] h-8 px-1 text-right font-semibold" style={{ color: BRAND_B_COLOR }}>B</TableHead>
-                <TableHead className="text-[10px] h-8 px-1 text-right font-semibold uppercase tracking-wider text-gray-400">Δ</TableHead>
-                <TableHead className="text-[10px] h-8 px-1 font-semibold uppercase tracking-wider text-gray-400">Saturation gap</TableHead>
-                <TableHead className="text-[10px] h-8 px-1 font-semibold uppercase tracking-wider text-gray-400">Battle</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {regionMetrics.map((m) => {
-                const isSelected = selectedRegion === m.region;
-                const displayName = m.region.replace(" (England)", "");
-                const delta = Math.abs(m.countA - m.countB);
-                const leader = m.countA > m.countB ? brandA : brandB;
-                
-                return (
-                  <TableRow
-                    key={m.region}
-                    className={`border-b border-gray-50 cursor-pointer transition-colors ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
-                    onClick={() => setSelectedRegion(m.region)}
-                  >
-                    <TableCell className="text-xs py-2 px-2 font-medium">
-                      <span className="text-gray-700 break-words">{displayName}</span>
-                    </TableCell>
-                    <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countA}</TableCell>
-                    <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countB}</TableCell>
-                    
-                    {/* Delta */}
-                    <TableCell className="text-xs py-2 px-1 text-right">
-                      <div className="flex flex-col items-end">
-                        <span className="text-xs font-medium text-gray-800">{delta}</span>
-                        <span className="text-[9px] text-gray-400">{leader}</span>
-                      </div>
-                    </TableCell>
-                    
-                    {/* Saturation Gap */}
-                    <TableCell className="text-xs py-2 px-1">
-                      <div className="flex flex-col gap-0.5">
-                        <div className="w-14 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full rounded-full"
-                            style={{ 
-                              width: `${Math.min(100, m.saturationGap * 20)}%`,
-                              backgroundColor: m.saturationA > m.saturationB ? BRAND_A_COLOR : BRAND_B_COLOR
-                            }}
-                          />
+          {/* Table */}
+          <div className="flex-1 overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-gray-100 bg-gray-50">
+                  <TableHead className="text-[10px] h-8 px-2 font-semibold uppercase tracking-wider text-gray-400 w-[100px]">Region</TableHead>
+                  <TableHead className="text-[10px] h-8 px-1 text-right font-semibold" style={{ color: BRAND_A_COLOR }}>A</TableHead>
+                  <TableHead className="text-[10px] h-8 px-1 text-right font-semibold" style={{ color: BRAND_B_COLOR }}>B</TableHead>
+                  <TableHead className="text-[10px] h-8 px-1 text-right font-semibold uppercase tracking-wider text-gray-400">Δ</TableHead>
+                  
+                  {/* Saturation Gap header with tooltip */}
+                  <TableHead className="text-[10px] h-8 px-1 font-semibold uppercase tracking-wider text-gray-400">
+                    <UITooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1 cursor-help">
+                          <span>Saturation gap</span>
+                          <Info className="w-2.5 h-2.5 text-gray-400" />
                         </div>
-                        <span className="text-[9px] text-gray-400 tabular-nums">
-                          {m.saturationGap.toFixed(2)}/100k
-                        </span>
-                      </div>
+                      </TooltipTrigger>
+                      <TooltipContent className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-3 py-1.5 text-xs">
+                        Saturation index difference
+                      </TooltipContent>
+                    </UITooltip>
+                  </TableHead>
+                  
+                  {/* Battle header with tooltip */}
+                  <TableHead className="text-[10px] h-8 px-1 font-semibold uppercase tracking-wider text-gray-400">
+                    <UITooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1 cursor-help">
+                          <span>Battle</span>
+                          <Info className="w-2.5 h-2.5 text-gray-400" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-3 py-1.5 text-xs">
+                        Percent of A near B locations in 500m
+                      </TooltipContent>
+                    </UITooltip>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {regionMetrics.map((m) => {
+                  const isSelected = selectedRegion === m.region;
+                  const displayName = m.region.replace(" (England)", "");
+                  const delta = Math.abs(m.countA - m.countB);
+                  const leader = m.countA > m.countB ? brandA : brandB;
+                  
+                  return (
+                    <TableRow
+                      key={m.region}
+                      className={`border-b border-gray-50 cursor-pointer transition-colors ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                      onClick={() => setSelectedRegion(m.region)}
+                    >
+                      <TableCell className="text-xs py-2 px-2 font-medium">
+                        <span className="text-gray-700 break-words">{displayName}</span>
+                      </TableCell>
+                      <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countA}</TableCell>
+                      <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countB}</TableCell>
+                      
+                      {/* Delta */}
+                      <TableCell className="text-xs py-2 px-1 text-right">
+                        <div className="flex flex-col items-end">
+                          <span className="text-xs font-medium text-gray-800">{delta}</span>
+                          <span className="text-[9px] text-gray-400">{leader}</span>
+                        </div>
+                      </TableCell>
+                      
+                      {/* Saturation Gap */}
+                      <TableCell className="text-xs py-2 px-1">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="w-14 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full rounded-full"
+                              style={{ 
+                                width: `${Math.min(100, m.saturationGap * 20)}%`,
+                                backgroundColor: m.saturationA > m.saturationB ? BRAND_A_COLOR : BRAND_B_COLOR
+                              }}
+                            />
+                          </div>
+                          <span className="text-[9px] text-gray-400 tabular-nums">
+                            {m.saturationGap.toFixed(2)}/100k
+                          </span>
+                        </div>
+                      </TableCell>
+                      
+                      {/* Battle Index */}
+                      <TableCell className="text-xs py-2 px-1">
+                        <div className="flex items-center gap-1">
+                          <Sword className={`w-3 h-3 ${m.battleIndex > 70 ? "text-red-500" : "text-gray-300"}`} />
+                          <span className={`text-xs font-medium ${m.battleIndex > 70 ? "text-red-600" : "text-gray-600"}`}>
+                            {m.battleIndex}%
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+
+                {regionMetrics.length > 0 && (
+                  <TableRow className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+                    <TableCell className="text-xs py-2 px-2 font-bold">Total</TableCell>
+                    <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalA}</TableCell>
+                    <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalB}</TableCell>
+                    <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalDelta}</TableCell>
+                    <TableCell className="text-xs py-2 px-1">
+                      <span className="text-[10px] text-gray-500">avg {totals.avgSaturationGap}</span>
                     </TableCell>
-                    
-                    {/* Battle Index */}
                     <TableCell className="text-xs py-2 px-1">
                       <div className="flex items-center gap-1">
-                        <Sword className={`w-3 h-3 ${m.battleIndex > 70 ? "text-red-500" : "text-gray-300"}`} />
-                        <span className={`text-xs font-medium ${m.battleIndex > 70 ? "text-red-600" : "text-gray-600"}`}>
-                          {m.battleIndex}%
-                        </span>
+                        <Sword className="w-3 h-3 text-gray-400" />
+                        <span className="text-xs font-medium text-gray-600">{totals.avgBattle}%</span>
                       </div>
                     </TableCell>
                   </TableRow>
-                );
-              })}
-
-              {regionMetrics.length > 0 && (
-                <TableRow className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
-                  <TableCell className="text-xs py-2 px-2 font-bold">Total</TableCell>
-                  <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalA}</TableCell>
-                  <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalB}</TableCell>
-                  <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalDelta}</TableCell>
-                  <TableCell className="text-xs py-2 px-1">
-                    <span className="text-[10px] text-gray-500">avg {totals.avgSaturationGap}</span>
-                  </TableCell>
-                  <TableCell className="text-xs py-2 px-1">
-                    <div className="flex items-center gap-1">
-                      <Sword className="w-3 h-3 text-gray-400" />
-                      <span className="text-xs font-medium text-gray-600">{totals.avgBattle}%</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </aside>
-    </div>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </aside>
+      </div>
+    </TooltipProvider>
   );
 };
 
