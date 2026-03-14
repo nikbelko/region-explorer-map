@@ -89,7 +89,7 @@ const Compare = () => {
   const [regionsData, setRegionsData] = useState<any>(null);
   const [mapLoading, setMapLoading] = useState(true);
   const [activeLayer, setActiveLayer] = useState<MapLayer>("both");
-  const [showRadar, setShowRadar] = useState(true);
+  const [showRadar, setShowRadar] = useState(false); // По умолчанию свернут
 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
@@ -195,7 +195,7 @@ const Compare = () => {
               opacity: 0.5
             });
             hexagon.bindTooltip(
-              `⚔️ Конфликтная зона<br/>${brandA}: ${nearbyA}, ${brandB}: ${nearbyB}`,
+              `Конфликтная зона<br/>${brandA}: ${nearbyA}, ${brandB}: ${nearbyB}`,
               { direction: "top" }
             );
             hexagonLayer.current!.addLayer(hexagon);
@@ -468,28 +468,9 @@ const Compare = () => {
                 activeLayer === "conflict" ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"
               }`}
             >
-              <span>⚔️</span>
+              <Sword className="w-3 h-3" />
               Conflict zones
             </button>
-          </div>
-        </div>
-
-        {/* Legend */}
-        <div className="absolute bottom-5 right-5 z-[1000] bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
-          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Legend</h4>
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
-              <span className="text-xs text-gray-600">{brandA}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
-              <span className="text-xs text-gray-600">{brandB}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CONFLICT_COLOR }} />
-              <span className="text-xs text-gray-600">⚔️ Conflict zones</span>
-            </div>
           </div>
         </div>
 
@@ -699,10 +680,10 @@ const Compare = () => {
                     {/* Battle Index */}
                     <TableCell className="text-xs py-2 px-1">
                       <div className="flex items-center gap-1">
+                        <Sword className={`w-3 h-3 ${m.battleIndex > 70 ? "text-red-500" : "text-gray-300"}`} />
                         <span className={`text-xs font-medium ${m.battleIndex > 70 ? "text-red-600" : "text-gray-600"}`}>
                           {m.battleIndex}%
                         </span>
-                        {m.battleIndex > 70 && <span className="text-xs">⚔️</span>}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -719,7 +700,10 @@ const Compare = () => {
                     <span className="text-[10px] text-gray-500">avg {totals.avgSaturationGap}</span>
                   </TableCell>
                   <TableCell className="text-xs py-2 px-1">
-                    <span className="text-xs font-medium text-gray-600">{totals.avgBattle}%</span>
+                    <div className="flex items-center gap-1">
+                      <Sword className="w-3 h-3 text-gray-400" />
+                      <span className="text-xs font-medium text-gray-600">{totals.avgBattle}%</span>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
