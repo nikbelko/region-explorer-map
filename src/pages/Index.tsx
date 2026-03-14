@@ -22,7 +22,7 @@ import { point as turfPoint } from "@turf/helpers";
  */
 const DISPLAY_TO_GEO: Record<string, string> = {
   "East Midlands": "East Midlands (England)",
-  "East of England": "East of England",
+  "East of England": "East (England)",
   "London": "London",
   "North East": "North East (England)",
   "North West": "North West (England)",
