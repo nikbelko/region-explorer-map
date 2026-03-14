@@ -30,7 +30,6 @@ interface RegionInfoPanelProps {
   selectedRegion: string | null;
   regionStats: RegionStats | null;
   onClearRegion: () => void;
-  avgLocations: number; // добавляем пропс
 }
 
 const Card = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
@@ -262,9 +261,9 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Locations</p>
             <div className="flex items-end justify-between">
               <p className="text-3xl font-black text-blue-600 leading-none">{totalPoints}</p>
-              {vsAvgLocations !== null && (
+              {vsAvgTopShare !== null && (
                 <p className="text-[9px] text-gray-400 mb-1">
-                  vs Avg {vsAvgLocations >= 0 ? "+" : ""}{vsAvgLocations}
+                  vs Avg {vsAvgTopShare >= 0 ? "+" : ""}{vsAvgTopShare}
                 </p>
               )}
             </div>
