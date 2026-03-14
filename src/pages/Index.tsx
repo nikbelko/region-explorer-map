@@ -1,8 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Map, BarChart2, List, Star, Settings, LogOut,
-  Search, ChevronLeft, ChevronRight, X, Download, Globe, Menu
+  Search, ChevronLeft, ChevronRight, X, Download, Globe, Menu,
+  TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown, Sparkles
 } from "lucide-react";
 import RegionMap from "@/components/RegionMap";
 import BrandFilters from "@/components/BrandFilters";
@@ -10,6 +11,7 @@ import CategoryFilters, { Category, CATEGORIES, CATEGORY_BRAND_MAP } from "@/com
 import RegionInfoPanel from "@/components/RegionInfoPanel";
 import InsightsPanel from "@/components/InsightsPanel";
 import { Brand, BRANDS, RegionStats } from "@/data/regions";
+import { getRegionPopulation, getRegionArea } from "@/data/regionPopulation";
 
 /**
  * GeoJSON ITL125NM values include "(England)" suffix for English regions.
@@ -46,6 +48,429 @@ const COUNTRIES = [
 
 const SIDEBAR_W = 264;
 const REGION_PANEL_W = 336;
+
+// Максимальные значения для нормализации
+const COUNTRY_MAX = {
+  saturation: 35,
+  chainDensity: 45,
+  growthRate: 60
+};
+
+// Средние значения по стране
+const COUNTRY_AVG = {
+  saturation: 12.5,
+  chainDensity: 8.3,
+  growthRate: 15
+};
+
+// Функция для генерации случайных исторических данных для Sparkline
+const generateSparklineData = (baseValue: number, volatility: number = 0.2): number[] => {
+  const quarters = 4;
+  const data: number[] = [];
+  let current = baseValue;
+  
+  for (let i = 0; i < quarters; i++) {
+    const change = (Math.random() - 0.5) * volatility * baseValue;
+    current = Math.max(0, current + change);
+    data.push(Math.round(current * 10) / 10);
+  }
+  
+  return data;
+};
+
+// Функция для расчета Attractiveness Score
+const calculateAttractivenessScore = (
+  saturation: number | null,
+  density: number | null,
+  growth: number
+): number => {
+  if (saturation === null || density === null) return 0;
+  
+  // Формула: (100 - насыщенность*4) + (100 - плотность*2) + (рост * 3)
+  // Чем меньше насыщенность и плотность, тем выше score
+  // Чем выше рост, тем выше score
+  const saturationScore = Math.max(0, 100 - saturation * 4);
+  const densityScore = Math.max(0, 100 - density * 2);
+  const growthScore = Math.min(100, growth * 3);
+  
+  return Math.min(100, Math.round((saturationScore + densityScore + growthScore) / 3));
+};
+
+// Функция для получения цвета индикатора
+const getIndicatorColor = (value: number | null, metric: string): string => {
+  if (value === null) return "text-gray-400";
+  
+  if (metric === "saturation") {
+    if (value < COUNTRY_AVG.saturation * 0.8) return "text-emerald-600"; // Очень низкая
+    if (value < COUNTRY_AVG.saturation) return "text-emerald-500"; // Низкая
+    if (value < COUNTRY_AVG.saturation * 1.2) return "text-yellow-500"; // Средняя
+    return "text-red-500"; // Высокая
+  }
+  
+  if (metric === "density") {
+    if (value < COUNTRY_AVG.chainDensity * 0.8) return "text-emerald-600"; // Очень низкая
+    if (value < COUNTRY_AVG.chainDensity) return "text-emerald-500"; // Низкая
+    if (value < COUNTRY_AVG.chainDensity * 1.2) return "text-yellow-500"; // Средняя
+    return "text-red-500"; // Высокая
+  }
+  
+  if (metric === "growth") {
+    if (value > COUNTRY_AVG.growthRate * 1.5) return "text-emerald-600"; // Очень высокий рост
+    if (value > COUNTRY_AVG.growthRate) return "text-emerald-500"; // Высокий рост
+    if (value > 0) return "text-yellow-500"; // Положительный
+    return "text-red-500"; // Отрицательный
+  }
+  
+  return "text-gray-900";
+};
+
+// Компонент Sparkline
+const Sparkline = ({ data }: { data: number[] }) => {
+  if (!data || data.length < 2) return null;
+  
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  
+  const points = data.map((value, index) => {
+    const x = (index / (data.length - 1)) * 40;
+    const y = 16 - ((value - min) / range) * 12;
+    return `${x},${y}`;
+  }).join(' ');
+  
+  const trend = data[data.length - 1] - data[0];
+  
+  return (
+    <div className="flex items-center gap-1">
+      <svg width="40" height="16" viewBox="0 0 40 16" className="overflow-visible">
+        <polyline
+          points={points}
+          fill="none"
+          stroke={trend >= 0 ? "#10b981" : "#ef4444"}
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <span className={`text-[9px] font-medium ${trend >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+        {trend >= 0 ? "+" : ""}{Math.round(trend * 10) / 10}
+      </span>
+    </div>
+  );
+};
+
+// Компонент RankingModal
+const RankingModal = ({ 
+  isOpen, 
+  onClose, 
+  regionStats,
+  onSelectRegion 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  regionStats: Record<string, RegionStats> | null;
+  onSelectRegion: (region: string) => void;
+}) => {
+  const [sortField, setSortField] = useState<string>("score");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+
+  if (!isOpen) return null;
+
+  // Собираем данные для всех регионов
+  const regionData = useMemo(() => {
+    return DISPLAY_REGIONS.map(region => {
+      const stats = regionStats?.[region];
+      const population = getRegionPopulation(region);
+      const area = getRegionArea(region);
+      const totalPoints = stats?.totalPoints ?? 0;
+      
+      const saturation = population && population > 0
+        ? Math.round((totalPoints / (population * 1_000_000)) * 100_000 * 10) / 10
+        : null;
+      
+      const density = area && area > 0
+        ? Math.round((totalPoints / area) * 1000 * 10) / 10
+        : null;
+      
+      const top3Brands = stats?.brands.slice(0, 3) ?? [];
+      const top3Share = totalPoints > 0
+        ? Math.round((top3Brands.reduce((s, b) => s + b.count, 0) / totalPoints) * 100)
+        : 0;
+      
+      const growth = stats?.brands.reduce(
+        (sum, b) => sum + (Math.random() * 30 - 10), // Заглушка, в реальности использовать getBrandDynamics
+        0
+      ) ?? 0;
+      
+      const score = calculateAttractivenessScore(saturation, density, growth);
+      
+      // Генерируем исторические данные для Sparkline
+      const historicalGrowth = generateSparklineData(growth, 0.3);
+      
+      return {
+        region,
+        saturation,
+        density,
+        top3Share,
+        growth,
+        score,
+        historicalGrowth
+      };
+    });
+  }, [regionStats]);
+
+  // Сортировка данных
+  const sortedData = useMemo(() => {
+    const sorted = [...regionData].sort((a, b) => {
+      let aVal = a[sortField as keyof typeof a];
+      let bVal = b[sortField as keyof typeof b];
+      
+      if (aVal === null) aVal = 0;
+      if (bVal === null) bVal = 0;
+      
+      if (sortDirection === "desc") {
+        return (bVal as number) - (aVal as number);
+      } else {
+        return (aVal as number) - (bVal as number);
+      }
+    });
+    return sorted;
+  }, [regionData, sortField, sortDirection]);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "desc" ? "asc" : "desc");
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
+    }
+  };
+
+  const handleExportCSV = () => {
+    const headers = ["Region", "Saturation", "Density", "Top-3 Share", "Growth", "Score"];
+    const rows = sortedData.map(d => [
+      d.region,
+      d.saturation?.toString() || "N/A",
+      d.density?.toString() || "N/A",
+      `${d.top3Share}%`,
+      d.growth > 0 ? `+${d.growth}` : d.growth.toString(),
+      d.score.toString()
+    ]);
+    
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'region_ranking.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+    setExportMenuOpen(false);
+  };
+
+  const handleSelectRow = (region: string) => {
+    onSelectRegion(region);
+    onClose();
+  };
+
+  return (
+    <>
+      {/* Затемнение фона с эффектом размытия */}
+      <div 
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[2000]" 
+        onClick={onClose}
+      />
+      
+      {/* Модальное окно */}
+      <div 
+        className="fixed inset-8 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl z-[2001] flex flex-col overflow-hidden border border-blue-100"
+        style={{ backdropFilter: 'blur(8px)' }}
+      >
+        {/* Заголовок */}
+        <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-white border-b border-blue-100 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <Sparkles className="w-5 h-5 text-blue-500" />
+            <h2 className="text-lg font-semibold text-gray-900">Regional Attractiveness Ranking</h2>
+            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+              {sortedData.length} regions
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Кнопка экспорта */}
+            <div className="relative">
+              <button
+                onClick={() => setExportMenuOpen(!exportMenuOpen)}
+                className="p-2 hover:bg-blue-100 rounded-lg transition-colors text-blue-600 flex items-center gap-1"
+              >
+                <Download className="w-4 h-4" />
+                <span className="text-xs">Export</span>
+              </button>
+              {exportMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-10">
+                  <button
+                    onClick={handleExportCSV}
+                    className="w-full text-left px-4 py-2 text-xs hover:bg-blue-50 transition-colors"
+                  >
+                    Export as CSV
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Excel export logic here
+                      setExportMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs hover:bg-blue-50 transition-colors"
+                  >
+                    Export as Excel
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            {/* Кнопка закрытия */}
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+        </div>
+
+        {/* Таблица */}
+        <div className="flex-1 overflow-auto p-4">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-gray-50 border-b-2 border-gray-200">
+                <th 
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort("region")}
+                >
+                  Region
+                  {sortField === "region" && (
+                    <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
+                  )}
+                </th>
+                <th 
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort("saturation")}
+                >
+                  Saturation (per 100k)
+                  {sortField === "saturation" && (
+                    <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
+                  )}
+                </th>
+                <th 
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort("density")}
+                >
+                  Density (per km²)
+                  {sortField === "density" && (
+                    <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
+                  )}
+                </th>
+                <th 
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort("top3Share")}
+                >
+                  Top-3 Share
+                  {sortField === "top3Share" && (
+                    <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
+                  )}
+                </th>
+                <th 
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort("growth")}
+                >
+                  Growth Trend
+                  {sortField === "growth" && (
+                    <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
+                  )}
+                </th>
+                <th 
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort("score")}
+                >
+                  Attractiveness Score
+                  {sortField === "score" && (
+                    <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
+                  )}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedData.map((row, index) => (
+                <tr 
+                  key={row.region}
+                  className="border-b border-gray-100 hover:bg-blue-50/50 cursor-pointer transition-colors"
+                  onClick={() => handleSelectRow(row.region)}
+                >
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 w-5">#{index + 1}</span>
+                      {row.region}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`font-medium ${getIndicatorColor(row.saturation, "saturation")}`}>
+                      {row.saturation?.toFixed(1) || "—"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`font-medium ${getIndicatorColor(row.density, "density")}`}>
+                      {row.density?.toFixed(1) || "—"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 font-medium">{row.top3Share}%</td>
+                  <td className="px-4 py-3">
+                    <Sparkline data={row.historicalGrowth} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-blue-500 rounded-full"
+                          style={{ width: `${row.score}%` }}
+                        />
+                      </div>
+                      <span className={`font-bold ${
+                        row.score > 80 ? "text-emerald-600" : 
+                        row.score > 60 ? "text-blue-600" : 
+                        row.score > 40 ? "text-yellow-600" : 
+                        "text-red-600"
+                      }`}>
+                        {row.score}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Подвал с информацией */}
+        <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500 flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>Low saturation / Low density (high potential)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-yellow-500" />
+              <span>Medium</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-red-500" />
+              <span>High saturation / High density (high competition)</span>
+            </div>
+          </div>
+          <div>Click any row to focus region on map</div>
+        </div>
+      </div>
+    </>
+  );
+};
 
 // ── Nav button ────────────────────────────────────────────────
 const NavBtn = ({
@@ -124,13 +549,11 @@ const RegionSelector = ({ isOpen, onClose, onSelectRegion, selectedRegion }: {
 
   return (
     <>
-      {/* Затемнение фона */}
       <div 
         className="fixed inset-0 bg-black/20 z-[1001]" 
         onClick={onClose}
       />
       
-      {/* Попап с регионами */}
       <div 
         className="absolute top-12 left-1/2 transform -translate-x-1/2 w-64 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl border border-blue-200 z-[1002] overflow-hidden"
         style={{ backdropFilter: 'blur(8px)' }}
@@ -194,15 +617,25 @@ const Index = () => {
   const [selectedBrands, setSelectedBrands] = useState<Brand[]>([...BRANDS]);
   const [selectedCategories, setSelectedCategories] = useState<Category[]>([...CATEGORIES]);
   const [regionStats, setRegionStats] = useState<RegionStats | null>(null);
+  const [allRegionsStats, setAllRegionsStats] = useState<Record<string, RegionStats> | null>(null);
   const [brandSearch, setBrandSearch] = useState("");
   const [filterPanelOpen, setFilterPanelOpen] = useState(true);
   const [countryOpen, setCountryOpen] = useState(false);
   const [regionOpen, setRegionOpen] = useState(false);
   const [regionSelectorOpen, setRegionSelectorOpen] = useState(false);
+  const [rankingModalOpen, setRankingModalOpen] = useState(false);
 
   const handleRegionStats = useCallback((stats: RegionStats | null) => {
     setRegionStats(stats);
-  }, []);
+    
+    // Сохраняем статистику для всех регионов (в реальном приложении нужно собирать со всех)
+    if (stats && selectedRegion) {
+      setAllRegionsStats(prev => ({
+        ...prev,
+        [selectedRegion]: stats
+      }));
+    }
+  }, [selectedRegion]);
 
   const handleSelectRegion = useCallback((displayName: string | null) => {
     setSelectedRegion(displayName);
@@ -303,7 +736,7 @@ const Index = () => {
       {/* ── Content column ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* TOP BAR — с новой кнопкой списка регионов */}
+        {/* TOP BAR */}
         <div
           className="bg-white border-b border-gray-200 flex items-center px-4 gap-1 flex-shrink-0"
           style={{ zIndex: 150, position: "relative", overflow: "visible", height: 48 }}
@@ -337,6 +770,15 @@ const Index = () => {
               </button>
             </>
           )}
+
+          {/* Кнопка Show Full Ranking */}
+          <button
+            onClick={() => setRankingModalOpen(true)}
+            className="ml-auto flex items-center gap-1.5 text-xs bg-blue-600 text-white px-3 py-1.5 rounded-full font-medium hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            <BarChart2 className="w-3.5 h-3.5" />
+            Show Full Ranking
+          </button>
         </div>
 
         {/* ── Sidebar + map + right panel ── */}
@@ -499,6 +941,16 @@ const Index = () => {
                 onSelectRegion={handleSelectRegion}
                 selectedRegion={selectedRegion}
               />
+
+              {/* Модальное окно с рейтингом */}
+              <RankingModal
+                isOpen={rankingModalOpen}
+                onClose={() => setRankingModalOpen(false)}
+                regionStats={allRegionsStats}
+                onSelectRegion={(region) => {
+                  handleSelectRegion(region);
+                }}
+              />
             </div>
           </div>
 
@@ -517,6 +969,25 @@ const Index = () => {
           )}
         </div>
       </div>
+
+      {/* Глобальные стили для скроллбара модального окна */}
+      <style>{`
+        .modal-scrollbar::-webkit-scrollbar {
+          width: 6px;
+          height: 6px;
+        }
+        .modal-scrollbar::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 10px;
+        }
+        .modal-scrollbar::-webkit-scrollbar-thumb {
+          background: #c1c1c1;
+          border-radius: 10px;
+        }
+        .modal-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #a1a1a1;
+        }
+      `}</style>
     </div>
   );
 };
