@@ -16,7 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 
 const BRAND_A_COLOR = "#3B82F6";
 const BRAND_B_COLOR = "#F97316";
@@ -86,23 +86,36 @@ function calculateBattleIndex(
   return Math.round((hasNearby / pointsA.length) * 100);
 }
 
-// Кастомный тултип для Radar chart
+// Кастомный тултип для Radar chart в стиле Country Explorer
 const CustomRadarTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-2 text-xs">
-        <p className="font-medium text-gray-700 mb-1">{label}</p>
+      <div className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-4 py-2 text-xs">
+        <p className="text-gray-300 mb-1.5">{label}</p>
         {payload.map((entry: any, index: number) => (
-          <p key={index} style={{ color: entry.color }} className="flex items-center gap-2">
+          <div key={index} className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-            {entry.name}: {entry.value}%
-          </p>
+            <span style={{ color: entry.color }}>{entry.name}:</span>
+            <span className="text-white font-medium ml-auto">{entry.value}%</span>
+          </div>
         ))}
       </div>
     );
   }
   return null;
 };
+
+// Кастомный тултип для таблицы в стиле Country Explorer
+const CustomTableTooltip = ({ children, content }: { children: React.ReactNode; content: string }) => (
+  <UITooltip>
+    <TooltipTrigger asChild>
+      {children}
+    </TooltipTrigger>
+    <TooltipContent className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-3 py-1.5 text-xs">
+      {content}
+    </TooltipContent>
+  </UITooltip>
+);
 
 const Compare = () => {
   const navigate = useNavigate();
@@ -380,80 +393,48 @@ const Compare = () => {
   // Insights (расширенная версия)
   const insights = useMemo(() => {
     if (regionMetrics.length === 0) return [];
-    const result: { text: string; icon?: any; category?: string }[] = [];
+    const result: { text: string; icon?: any }[] = [];
 
-    // Лидерство по регионам
     const aWins = regionMetrics.filter((m) => m.leader === "A").length;
     const bWins = regionMetrics.filter((m) => m.leader === "B").length;
     const ties = regionMetrics.filter((m) => m.leader === "tie").length;
     
     result.push({ 
-      category: "🏆 Leadership",
-      text: `${brandA} leads in ${aWins} regions (${Math.round(aWins/regionMetrics.length*100)}%), ${brandB} in ${bWins} regions (${Math.round(bWins/regionMetrics.length*100)}%)`,
-      icon: brandA === "McDonald's" ? "🍔" : "🍗"
+      text: `${brandA} leads in ${aWins} regions (${Math.round(aWins/regionMetrics.length*100)}%), ${brandB} in ${bWins} regions (${Math.round(bWins/regionMetrics.length*100)}%)`
     });
 
-    // Самый большой разрыв в насыщении
     const maxGapRegion = regionMetrics.reduce((max, m) => m.saturationGap > max.saturationGap ? m : max);
     if (maxGapRegion.saturationGap > 0) {
       const leader = maxGapRegion.saturationA > maxGapRegion.saturationB ? brandA : brandB;
       result.push({ 
-        category: "📊 Saturation Gap",
-        text: `Largest gap: ${leader} ahead by ${maxGapRegion.saturationGap.toFixed(2)} points/100k in ${maxGapRegion.region.replace(" (England)", "")}`,
+        text: `Biggest saturation gap: ${leader} ahead by ${maxGapRegion.saturationGap.toFixed(2)} points/100k in ${maxGapRegion.region.replace(" (England)", "")}`,
         icon: Target
       });
     }
 
-    // Зоны высокой конкуренции
     const highConflictRegions = regionMetrics.filter(m => m.battleIndex > 70);
     if (highConflictRegions.length > 0) {
       result.push({ 
-        category: "⚔️ Hot Zones",
         text: `High competition (Battle Index >70%): ${highConflictRegions.map(r => r.region.replace(" (England)", "")).join(", ")}`,
         icon: Sword
       });
     }
 
-    // Зоны низкой конкуренции
     const lowConflictRegions = regionMetrics.filter(m => m.battleIndex < 30 && m.countA > 0 && m.countB > 0);
     if (lowConflictRegions.length > 0) {
       result.push({ 
-        category: "📡 Diverge Zones",
         text: `Brands diverge (Battle Index <30%): ${lowConflictRegions.map(r => r.region.replace(" (England)", "")).join(", ")}`,
         icon: Radio
       });
     }
 
-    // Самый высокий Battle Index
     const highestBattle = regionMetrics.reduce((max, m) => m.battleIndex > max.battleIndex ? m : max);
     if (highestBattle.battleIndex > 0) {
       result.push({ 
-        category: "🔥 Hottest Battle",
         text: `Most intense competition: ${highestBattle.region.replace(" (England)", "")} (${highestBattle.battleIndex}%)`,
         icon: "🔥"
       });
     }
-
-    // Самый низкий Battle Index (где есть оба бренда)
-    const lowestBattle = regionMetrics
-      .filter(m => m.countA > 0 && m.countB > 0)
-      .reduce((min, m) => m.battleIndex < min.battleIndex ? m : min, { battleIndex: 100 } as any);
-    
-    if (lowestBattle.battleIndex < 100) {
-      result.push({ 
-        category: "🕊️ Peaceful Coexistence",
-        text: `Lowest competition: ${lowestBattle.region.replace(" (England)", "")} (${lowestBattle.battleIndex}%)`,
-        icon: "🕊️"
-      });
-    }
-
-    // Плотность точек
-    const highestDensity = regionMetrics.reduce((max, m) => (m.densityA + m.densityB) > (max.densityA + max.densityB) ? m : max);
-    result.push({ 
-      category: "📍 Density",
-      text: `Highest chain density: ${highestDensity.region.replace(" (England)", "")} (${(highestDensity.densityA + highestDensity.densityB).toFixed(2)} per 1000km²)`,
-      icon: "📍"
-    });
 
     return result;
   }, [regionMetrics, brandA, brandB]);
@@ -542,28 +523,26 @@ const Compare = () => {
             </div>
           </div>
 
-          {/* Insights - расширенная панель */}
+          {/* Insights - расширенная по ширине */}
           {insights.length > 0 && (
             <div className="absolute bottom-4 left-4 z-[1000] bg-white border border-gray-200 rounded-lg shadow-sm p-3.5"
-                 style={{ right: 170, maxWidth: 350 }}>
+                 style={{ width: 420 }}>
               <div className="flex items-center gap-2 mb-2">
                 <Lightbulb className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
                 <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Insights</h4>
               </div>
-              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                 {insights.map((item, i) => {
                   const Icon = item.icon;
                   return (
-                    <div key={i} className="text-xs">
-                      <div className="flex items-start gap-1.5">
-                        {typeof Icon === 'string' ? (
-                          <span className="text-xs">{Icon}</span>
-                        ) : Icon ? (
-                          <Icon className="w-3 h-3 mt-0.5 flex-shrink-0 text-gray-400" />
-                        ) : null}
-                        <span className="text-gray-500 leading-tight">· {item.text}</span>
-                      </div>
-                    </div>
+                    <p key={i} className="text-xs text-gray-500 flex items-start gap-1.5">
+                      {Icon && typeof Icon === 'string' ? (
+                        <span className="text-xs">{Icon}</span>
+                      ) : Icon ? (
+                        <Icon className="w-3 h-3 mt-0.5 flex-shrink-0 text-gray-400" />
+                      ) : null}
+                      <span>· {item.text}</span>
+                    </p>
                   );
                 })}
               </div>
@@ -580,11 +559,11 @@ const Compare = () => {
           )}
         </main>
 
-        {/* Right panel */}
-        <aside className="w-[440px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col">
+        {/* Right panel - расширенная */}
+        <aside className="w-[500px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col">
 
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
+          <div className="px-5 py-3 border-b border-gray-200 flex-shrink-0">
             <div className="flex items-center gap-1 text-xs text-gray-400 mb-2.5">
               <button onClick={() => navigate("/")} className="font-medium text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1">
                 <ArrowLeft className="w-3 h-3" />
@@ -598,8 +577,8 @@ const Compare = () => {
           </div>
 
           {/* Brand selectors */}
-          <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="px-5 py-3 border-b border-gray-200 flex-shrink-0">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-1.5">
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_A_COLOR }} />
@@ -634,7 +613,7 @@ const Compare = () => {
           {/* Ranking section with collapsible Radar */}
           <div className="border-b border-gray-200">
             <div 
-              className="px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+              className="px-5 py-2 flex items-center justify-between cursor-pointer hover:bg-gray-50"
               onClick={() => setShowRadar(!showRadar)}
             >
               <div className="flex items-center gap-2">
@@ -652,7 +631,7 @@ const Compare = () => {
             
             {/* Radar Chart */}
             {showRadar && selectedRegion && radarData.length > 0 && (
-              <div className="px-4 pb-3">
+              <div className="px-5 pb-3">
                 <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart data={radarData}>
@@ -682,7 +661,7 @@ const Compare = () => {
             
             {/* Empty state when no region selected */}
             {showRadar && !selectedRegion && (
-              <div className="px-4 pb-3">
+              <div className="px-5 pb-3">
                 <div className="h-48 flex items-center justify-center border border-dashed border-gray-200 rounded-lg">
                   <p className="text-xs text-gray-400">Click on a region to see ranking</p>
                 </div>
@@ -695,39 +674,39 @@ const Compare = () => {
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-gray-100 bg-gray-50">
-                  <TableHead className="text-[10px] h-8 px-2 font-semibold uppercase tracking-wider text-gray-400 w-[100px]">Region</TableHead>
-                  <TableHead className="text-[10px] h-8 px-1 text-right font-semibold" style={{ color: BRAND_A_COLOR }}>A</TableHead>
-                  <TableHead className="text-[10px] h-8 px-1 text-right font-semibold" style={{ color: BRAND_B_COLOR }}>B</TableHead>
-                  <TableHead className="text-[10px] h-8 px-1 text-right font-semibold uppercase tracking-wider text-gray-400">Δ</TableHead>
+                  <TableHead className="text-[10px] h-8 px-3 font-semibold uppercase tracking-wider text-gray-400 w-[110px]">Region</TableHead>
+                  <TableHead className="text-[10px] h-8 px-2 text-right font-semibold" style={{ color: BRAND_A_COLOR }}>A</TableHead>
+                  <TableHead className="text-[10px] h-8 px-2 text-right font-semibold" style={{ color: BRAND_B_COLOR }}>B</TableHead>
+                  <TableHead className="text-[10px] h-8 px-2 text-right font-semibold uppercase tracking-wider text-gray-400">Δ</TableHead>
                   
                   {/* Saturation Gap header with tooltip */}
-                  <TableHead className="text-[10px] h-8 px-1 font-semibold uppercase tracking-wider text-gray-400">
-                    <UITooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1 cursor-help">
-                          <span>Saturation gap</span>
-                          <Info className="w-2.5 h-2.5 text-gray-400" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs max-w-[200px]">
-                        <p>Разница в насыщении между брендами (точек на 100k населения)</p>
-                      </TooltipContent>
-                    </UITooltip>
+                  <TableHead className="text-[10px] h-8 px-2 font-semibold uppercase tracking-wider text-gray-400">
+                    <div className="flex items-center gap-1">
+                      <span>Saturation gap</span>
+                      <UITooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-2.5 h-2.5 text-gray-400 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-3 py-1.5 text-xs">
+                          Saturation index difference
+                        </TooltipContent>
+                      </UITooltip>
+                    </div>
                   </TableHead>
                   
                   {/* Battle header with tooltip */}
-                  <TableHead className="text-[10px] h-8 px-1 font-semibold uppercase tracking-wider text-gray-400">
-                    <UITooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1 cursor-help">
-                          <span>Battle</span>
-                          <Info className="w-2.5 h-2.5 text-gray-400" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs max-w-[200px]">
-                        <p>Процент точек бренда A, рядом с которыми есть точки бренда B (радиус 500м)</p>
-                      </TooltipContent>
-                    </UITooltip>
+                  <TableHead className="text-[10px] h-8 px-2 font-semibold uppercase tracking-wider text-gray-400">
+                    <div className="flex items-center gap-1">
+                      <span>Battle</span>
+                      <UITooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-2.5 h-2.5 text-gray-400 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-3 py-1.5 text-xs">
+                          Percent of A near B locations in 500m
+                        </TooltipContent>
+                      </UITooltip>
+                    </div>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -744,14 +723,14 @@ const Compare = () => {
                       className={`border-b border-gray-50 cursor-pointer transition-colors ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
                       onClick={() => setSelectedRegion(m.region)}
                     >
-                      <TableCell className="text-xs py-2 px-2 font-medium">
+                      <TableCell className="text-xs py-2 px-3 font-medium">
                         <span className="text-gray-700 break-words">{displayName}</span>
                       </TableCell>
-                      <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countA}</TableCell>
-                      <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countB}</TableCell>
+                      <TableCell className="text-xs py-2 px-2 text-right font-semibold text-gray-800">{m.countA}</TableCell>
+                      <TableCell className="text-xs py-2 px-2 text-right font-semibold text-gray-800">{m.countB}</TableCell>
                       
                       {/* Delta */}
-                      <TableCell className="text-xs py-2 px-1 text-right">
+                      <TableCell className="text-xs py-2 px-2 text-right">
                         <div className="flex flex-col items-end">
                           <span className="text-xs font-medium text-gray-800">{delta}</span>
                           <span className="text-[9px] text-gray-400">{leader}</span>
@@ -759,11 +738,11 @@ const Compare = () => {
                       </TableCell>
                       
                       {/* Saturation Gap with tooltip */}
-                      <TableCell className="text-xs py-2 px-1">
+                      <TableCell className="text-xs py-2 px-2">
                         <UITooltip>
                           <TooltipTrigger asChild>
                             <div className="flex flex-col gap-0.5 cursor-help">
-                              <div className="w-14 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                                 <div 
                                   className="h-full rounded-full"
                                   style={{ 
@@ -777,16 +756,15 @@ const Compare = () => {
                               </span>
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">
-                            <p>{brandA}: {m.saturationA.toFixed(2)}/100k</p>
-                            <p>{brandB}: {m.saturationB.toFixed(2)}/100k</p>
-                            <p className="text-gray-500 mt-1">Разрыв: {m.saturationGap.toFixed(2)}/100k</p>
+                          <TooltipContent className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-3 py-1.5 text-xs">
+                            {brandA}: {m.saturationA.toFixed(2)}/100k<br />
+                            {brandB}: {m.saturationB.toFixed(2)}/100k
                           </TooltipContent>
                         </UITooltip>
                       </TableCell>
                       
                       {/* Battle Index with tooltip */}
-                      <TableCell className="text-xs py-2 px-1">
+                      <TableCell className="text-xs py-2 px-2">
                         <UITooltip>
                           <TooltipTrigger asChild>
                             <div className="flex items-center gap-1 cursor-help">
@@ -796,13 +774,8 @@ const Compare = () => {
                               </span>
                             </div>
                           </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">
-                            <p>{m.battleIndex}% точек {brandA} имеют точку {brandB} в радиусе 500м</p>
-                            <p className="text-gray-500 mt-1">
-                              {m.battleIndex > 70 ? "🔥 Высокая конкуренция" : 
-                               m.battleIndex > 40 ? "⚡ Средняя конкуренция" : 
-                               "🕊️ Низкая конкуренция"}
-                            </p>
+                          <TooltipContent className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-3 py-1.5 text-xs">
+                            {m.battleIndex}% of {brandA} locations have a {brandB} within 500m
                           </TooltipContent>
                         </UITooltip>
                       </TableCell>
@@ -812,14 +785,14 @@ const Compare = () => {
 
                 {regionMetrics.length > 0 && (
                   <TableRow className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
-                    <TableCell className="text-xs py-2 px-2 font-bold">Total</TableCell>
-                    <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalA}</TableCell>
-                    <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalB}</TableCell>
-                    <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalDelta}</TableCell>
-                    <TableCell className="text-xs py-2 px-1">
+                    <TableCell className="text-xs py-2 px-3 font-bold">Total</TableCell>
+                    <TableCell className="text-xs py-2 px-2 text-right font-bold text-gray-900">{totals.totalA}</TableCell>
+                    <TableCell className="text-xs py-2 px-2 text-right font-bold text-gray-900">{totals.totalB}</TableCell>
+                    <TableCell className="text-xs py-2 px-2 text-right font-bold text-gray-900">{totals.totalDelta}</TableCell>
+                    <TableCell className="text-xs py-2 px-2">
                       <span className="text-[10px] text-gray-500">avg {totals.avgSaturationGap}</span>
                     </TableCell>
-                    <TableCell className="text-xs py-2 px-1">
+                    <TableCell className="text-xs py-2 px-2">
                       <div className="flex items-center gap-1">
                         <Sword className="w-3 h-3 text-gray-400" />
                         <span className="text-xs font-medium text-gray-600">{totals.avgBattle}%</span>
