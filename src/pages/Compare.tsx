@@ -1,33 +1,90 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Lightbulb, Map, BarChart2, List, Star, Settings, LogOut, ChevronRight } from "lucide-react";
+import { ArrowLeft, Lightbulb, Map, BarChart2, List, Star, Settings, LogOut, ChevronRight, Crosshair, Target, Sword, Radio } from "lucide-react";
 import L from "leaflet";
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
 import { point as turfPoint } from "@turf/helpers";
 import { Brand, BRANDS, BRAND_CONFIGS } from "@/data/regions";
 import { useRestaurantData } from "@/hooks/useRestaurantData";
+import { getRegionPopulation, getRegionArea } from "@/data/regionPopulation";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend, ResponsiveContainer, Tooltip } from 'recharts';
 
 const BRAND_A_COLOR = "#3B82F6";
 const BRAND_B_COLOR = "#F97316";
+const CONFLICT_COLOR = "#DC2626"; // Красный для зон конфликта
 
 type Period = "month" | "quarter" | "year";
 const PERIOD_LABELS: Record<Period, string> = { month: "Month", quarter: "Quarter", year: "Year" };
 const PERIOD_MULTIPLIERS: Record<Period, number> = { month: 1, quarter: 3, year: 12 };
+
+type MapLayer = "both" | "conflict" | "a" | "b";
+
+interface RegionMetrics {
+  region: string;
+  countA: number;
+  countB: number;
+  saturationA: number;  // точек на 100k населения
+  saturationB: number;
+  densityA: number;     // точек на 1000 км²
+  densityB: number;
+  growthA: number;      // динамика за период
+  growthB: number;
+  battleIndex: number;  // % точек А, рядом с которыми есть Б
+  saturationGap: number; // |saturationA - saturationB|
+  conflictIntensity: number; // плотность конфликта (0-100)
+  leader: "A" | "B" | "tie";
+}
 
 function hashStr(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = s.charCodeAt(i) + ((h << 5) - h);
   return h;
 }
+
 function getBrandDynamics(region: string, brand: string, period: Period): number {
   const base = (Math.abs(hashStr(`${region}:${brand}`)) % 21) - 6;
   return Math.round((base * PERIOD_MULTIPLIERS[period]) / 3);
 }
 
-interface RegionComparison { region: string; countA: number; countB: number; leader: "A" | "B" | "tie"; }
+// Расчет battle index - процент точек А, рядом с которыми есть точки Б
+function calculateBattleIndex(
+  pointsA: Array<{ lat: number; lng: number }>,
+  pointsB: Array<{ lat: number; lng: number }>,
+  radiusMeters: number = 500
+): number {
+  if (pointsA.length === 0) return 0;
+  
+  let hasNearby = 0;
+  
+  for (const pointA of pointsA) {
+    let found = false;
+    for (const pointB of pointsB) {
+      // Формула гаверсинуса для расстояния между точками
+      const R = 6371e3; // радиус Земли в метрах
+      const φ1 = pointA.lat * Math.PI / 180;
+      const φ2 = pointB.lat * Math.PI / 180;
+      const Δφ = (pointB.lat - pointA.lat) * Math.PI / 180;
+      const Δλ = (pointB.lng - pointA.lng) * Math.PI / 180;
+      
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const distance = R * c;
+      
+      if (distance <= radiusMeters) {
+        found = true;
+        break;
+      }
+    }
+    if (found) hasNearby++;
+  }
+  
+  return Math.round((hasNearby / pointsA.length) * 100);
+}
 
 const Compare = () => {
   const navigate = useNavigate();
@@ -38,12 +95,16 @@ const Compare = () => {
   const [regionsData, setRegionsData] = useState<any>(null);
   const [mapLoading, setMapLoading] = useState(true);
   const [period, setPeriod] = useState<Period>("quarter");
+  const [activeLayer, setActiveLayer] = useState<MapLayer>("both");
+  const [showRadar, setShowRadar] = useState(true);
 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const layersRef = useRef<L.GeoJSON | null>(null);
   const markerLayerA = useRef<L.LayerGroup | null>(null);
   const markerLayerB = useRef<L.LayerGroup | null>(null);
+  const conflictLayer = useRef<L.LayerGroup | null>(null);
+  const hexagonLayer = useRef<L.LayerGroup | null>(null);
 
   // Init map
   useEffect(() => {
@@ -56,6 +117,8 @@ const Compare = () => {
     mapInstance.current = map;
     markerLayerA.current = L.layerGroup().addTo(map);
     markerLayerB.current = L.layerGroup().addTo(map);
+    conflictLayer.current = L.layerGroup().addTo(map);
+    hexagonLayer.current = L.layerGroup().addTo(map);
 
     fetch("/data/uk-regions.geojson").then((res) => res.json()).then((data) => {
       setRegionsData(data);
@@ -74,123 +137,281 @@ const Compare = () => {
     return () => { map.remove(); mapInstance.current = null; };
   }, []);
 
-  // Update markers when brands change
+  // Обновление маркеров и слоев
   useEffect(() => {
-    if (!markerLayerA.current || !markerLayerB.current) return;
+    if (!markerLayerA.current || !markerLayerB.current || !conflictLayer.current || !hexagonLayer.current) return;
+    
     markerLayerA.current.clearLayers();
     markerLayerB.current.clearLayers();
+    conflictLayer.current.clearLayers();
+    hexagonLayer.current.clearLayers();
+
+    const pointsA: Array<{ lat: number; lng: number }> = [];
+    const pointsB: Array<{ lat: number; lng: number }> = [];
+
     restaurants.forEach((r) => {
       if (r.brand === brandA) {
-        const m = L.circleMarker([r.lat, r.lng], { radius: 5, fillColor: BRAND_A_COLOR, color: "#fff", weight: 1, fillOpacity: 0.9 });
-        m.bindTooltip(`<strong style="color:${BRAND_A_COLOR}">${r.brand}</strong><br/>${r.name}`, { direction: "top", offset: [0, -6], className: "brand-tooltip" });
+        const m = L.circleMarker([r.lat, r.lng], { 
+          radius: 5, 
+          fillColor: BRAND_A_COLOR, 
+          color: "#fff", 
+          weight: 1, 
+          fillOpacity: activeLayer === "a" || activeLayer === "both" ? 0.9 : 0.2 
+        });
+        m.bindTooltip(`<strong style="color:${BRAND_A_COLOR}">${r.brand}</strong><br/>${r.name}`, 
+          { direction: "top", offset: [0, -6], className: "brand-tooltip" });
         markerLayerA.current!.addLayer(m);
+        pointsA.push({ lat: r.lat, lng: r.lng });
       } else if (r.brand === brandB) {
-        const m = L.circleMarker([r.lat, r.lng], { radius: 5, fillColor: BRAND_B_COLOR, color: "#fff", weight: 1, fillOpacity: 0.9 });
-        m.bindTooltip(`<strong style="color:${BRAND_B_COLOR}">${r.brand}</strong><br/>${r.name}`, { direction: "top", offset: [0, -6], className: "brand-tooltip" });
+        const m = L.circleMarker([r.lat, r.lng], { 
+          radius: 5, 
+          fillColor: BRAND_B_COLOR, 
+          color: "#fff", 
+          weight: 1, 
+          fillOpacity: activeLayer === "b" || activeLayer === "both" ? 0.9 : 0.2 
+        });
+        m.bindTooltip(`<strong style="color:${BRAND_B_COLOR}">${r.brand}</strong><br/>${r.name}`, 
+          { direction: "top", offset: [0, -6], className: "brand-tooltip" });
         markerLayerB.current!.addLayer(m);
+        pointsB.push({ lat: r.lat, lng: r.lng });
       }
     });
-  }, [brandA, brandB, restaurants]);
 
-  // Comparisons per region
-  const comparisons = useMemo<RegionComparison[]>(() => {
+    // Создание зон конфликта (гексагоны)
+    if (activeLayer === "conflict" && pointsA.length > 0 && pointsB.length > 0) {
+      // Создаем сетку гексагонов (упрощенная версия)
+      const bounds = L.latLngBounds(pointsA.concat(pointsB).map(p => [p.lat, p.lng]));
+      const hexSize = 0.05; // примерно 5 км
+      
+      for (let lat = bounds.getSouth(); lat <= bounds.getNorth(); lat += hexSize * 1.5) {
+        for (let lng = bounds.getWest(); lng <= bounds.getEast(); lng += hexSize * Math.sqrt(3)) {
+          // Проверяем наличие точек обоих брендов в радиусе
+          const nearbyA = pointsA.filter(p => 
+            Math.abs(p.lat - lat) < hexSize && Math.abs(p.lng - lng) < hexSize
+          ).length;
+          const nearbyB = pointsB.filter(p => 
+            Math.abs(p.lat - lat) < hexSize && Math.abs(p.lng - lng) < hexSize
+          ).length;
+          
+          if (nearbyA > 0 && nearbyB > 0) {
+            const intensity = Math.min(100, (nearbyA + nearbyB) * 20);
+            const hexagon = L.circleMarker([lat, lng], {
+              radius: 8,
+              fillColor: CONFLICT_COLOR,
+              color: "#fff",
+              weight: 1,
+              fillOpacity: intensity / 100,
+              opacity: 0.5
+            });
+            hexagon.bindTooltip(
+              `Конфликтная зона<br/>${brandA}: ${nearbyA}, ${brandB}: ${nearbyB}`,
+              { direction: "top" }
+            );
+            hexagonLayer.current!.addLayer(hexagon);
+          }
+        }
+      }
+    }
+  }, [brandA, brandB, restaurants, activeLayer]);
+
+  // Метрики по регионам
+  const regionMetrics = useMemo<RegionMetrics[]>(() => {
     if (!regionsData || restaurants.length === 0) return [];
+    
     const features = regionsData.features || [];
-    const results: RegionComparison[] = [];
+    const metrics: RegionMetrics[] = [];
+    
     for (const feature of features) {
       const name = feature?.properties?.ITL125NM || `Region ${feature?.id || "unknown"}`;
+      const population = getRegionPopulation(name) || 5.0;
+      const area = getRegionArea(name) || 10000;
+      
       let countA = 0, countB = 0;
+      const pointsA: Array<{ lat: number; lng: number }> = [];
+      const pointsB: Array<{ lat: number; lng: number }> = [];
+      
       for (const r of restaurants) {
         if (r.brand !== brandA && r.brand !== brandB) continue;
         try {
           if (booleanPointInPolygon(turfPoint([r.lng, r.lat]), feature)) {
-            if (r.brand === brandA) countA++;
-            else countB++;
+            if (r.brand === brandA) {
+              countA++;
+              pointsA.push({ lat: r.lat, lng: r.lng });
+            } else {
+              countB++;
+              pointsB.push({ lat: r.lat, lng: r.lng });
+            }
           }
         } catch { /**/ }
       }
-      results.push({ region: name, countA, countB, leader: countA > countB ? "A" : countB > countA ? "B" : "tie" });
+      
+      const saturationA = Math.round((countA / population) * 100) / 100;
+      const saturationB = Math.round((countB / population) * 100) / 100;
+      const densityA = Math.round((countA / area) * 1000 * 100) / 100;
+      const densityB = Math.round((countB / area) * 1000 * 100) / 100;
+      const growthA = getBrandDynamics(name, brandA, period);
+      const growthB = getBrandDynamics(name, brandB, period);
+      const battleIndex = calculateBattleIndex(pointsA, pointsB);
+      const saturationGap = Math.abs(saturationA - saturationB);
+      const conflictIntensity = Math.min(100, (battleIndex + (pointsB.length > 0 ? 50 : 0)) / 2);
+      
+      metrics.push({
+        region: name,
+        countA,
+        countB,
+        saturationA,
+        saturationB,
+        densityA,
+        densityB,
+        growthA,
+        growthB,
+        battleIndex,
+        saturationGap,
+        conflictIntensity,
+        leader: countA > countB ? "A" : countB > countA ? "B" : "tie"
+      });
     }
-    return results.sort((a, b) => (b.countA + b.countB) - (a.countA + a.countB));
-  }, [regionsData, restaurants, brandA, brandB]);
+    
+    return metrics.sort((a, b) => (b.countA + b.countB) - (a.countA + a.countB));
+  }, [regionsData, restaurants, brandA, brandB, period]);
 
-  // Color regions
+  // Данные для радарного графика
+  const radarData = useMemo(() => {
+    if (selectedRegion === null || regionMetrics.length === 0) return [];
+    
+    const selected = regionMetrics.find(m => m.region === selectedRegion);
+    if (!selected) return [];
+    
+    // Нормализация значений для радара (0-100)
+    const maxSaturation = Math.max(...regionMetrics.map(m => Math.max(m.saturationA, m.saturationB)));
+    const maxDensity = Math.max(...regionMetrics.map(m => Math.max(m.densityA, m.densityB)));
+    const maxGrowth = Math.max(...regionMetrics.map(m => Math.max(m.growthA, m.growthB)));
+    
+    return [
+      {
+        metric: "Saturation",
+        [brandA]: Math.round((selected.saturationA / maxSaturation) * 100),
+        [brandB]: Math.round((selected.saturationB / maxSaturation) * 100),
+        fullMark: 100,
+      },
+      {
+        metric: "Density",
+        [brandA]: Math.round((selected.densityA / maxDensity) * 100),
+        [brandB]: Math.round((selected.densityB / maxDensity) * 100),
+        fullMark: 100,
+      },
+      {
+        metric: "Growth",
+        [brandA]: Math.round(((selected.growthA + 10) / 20) * 100), // Нормализация от -10 до +10
+        [brandB]: Math.round(((selected.growthB + 10) / 20) * 100),
+        fullMark: 100,
+      },
+      {
+        metric: "Battle",
+        [brandA]: selected.battleIndex,
+        [brandB]: selected.battleIndex, // Одинаковый для обоих
+        fullMark: 100,
+      },
+    ];
+  }, [selectedRegion, regionMetrics, brandA, brandB]);
+
+  // Окраска регионов
   useEffect(() => {
     if (!layersRef.current) return;
+    
     const leaderMap: Record<string, "A" | "B" | "tie"> = {};
-    for (const c of comparisons) leaderMap[c.region] = c.leader;
+    const intensityMap: Record<string, number> = {};
+    for (const m of regionMetrics) {
+      leaderMap[m.region] = m.leader;
+      intensityMap[m.region] = m.conflictIntensity;
+    }
+    
     layersRef.current.eachLayer((layer: any) => {
       const name = layer._regionName;
       const isSelected = name === selectedRegion;
       const leader = leaderMap[name];
-      const fillColor = leader === "A" ? BRAND_A_COLOR : leader === "B" ? BRAND_B_COLOR : "#e5e7eb";
-      layer.setStyle({ fillColor, fillOpacity: isSelected ? 0.7 : 0.4, weight: isSelected ? 3 : 1.5, color: isSelected ? "#1d4ed8" : "#ffffff" });
+      const intensity = intensityMap[name] || 0;
+      
+      let fillColor = "#e5e7eb";
+      if (activeLayer === "conflict") {
+        // Градиент от серого к красному в зависимости от интенсивности конфликта
+        const r = 229 + (CONFLICT_COLOR.substring(1,3) - 229) * intensity / 100;
+        const g = 231 + (CONFLICT_COLOR.substring(3,5) - 231) * intensity / 100;
+        const b = 235 + (CONFLICT_COLOR.substring(5,7) - 235) * intensity / 100;
+        fillColor = `rgb(${r}, ${g}, ${b})`;
+      } else {
+        fillColor = leader === "A" ? BRAND_A_COLOR : leader === "B" ? BRAND_B_COLOR : "#e5e7eb";
+      }
+      
+      layer.setStyle({ 
+        fillColor, 
+        fillOpacity: isSelected ? 0.7 : (activeLayer === "conflict" ? intensity / 100 : 0.4), 
+        weight: isSelected ? 3 : 1.5, 
+        color: isSelected ? "#1d4ed8" : "#ffffff" 
+      });
       if (isSelected) layer.bringToFront();
     });
-  }, [selectedRegion, comparisons]);
+  }, [selectedRegion, regionMetrics, activeLayer]);
 
-  const totalA = comparisons.reduce((s, c) => s + c.countA, 0);
-  const totalB = comparisons.reduce((s, c) => s + c.countB, 0);
-  const overallLeader: "A" | "B" | "tie" = totalA > totalB ? "A" : totalB > totalA ? "B" : "tie";
+  // Итого
+  const totals = useMemo(() => {
+    const totalA = regionMetrics.reduce((s, m) => s + m.countA, 0);
+    const totalB = regionMetrics.reduce((s, m) => s + m.countB, 0);
+    const totalDelta = regionMetrics.reduce((s, m) => s + (m.growthA - m.growthB), 0);
+    const avgBattle = Math.round(regionMetrics.reduce((s, m) => s + m.battleIndex, 0) / regionMetrics.length);
+    
+    return { totalA, totalB, totalDelta, avgBattle };
+  }, [regionMetrics]);
 
-  const getDelta = useCallback((region: string) =>
-    getBrandDynamics(region, brandA, period) - getBrandDynamics(region, brandB, period),
-  [brandA, brandB, period]);
-
-  const totalDelta = comparisons.reduce((s, c) => s + getDelta(c.region), 0);
-
-  // ── Insights ──────────────────────────────────────────────
+  // Инсайты
   const insights = useMemo(() => {
-    if (comparisons.length === 0) return [];
-    const result: { text: string }[] = [];
+    if (regionMetrics.length === 0) return [];
+    const result: { text: string; icon?: any }[] = [];
 
-    const aWins = comparisons.filter((c) => c.leader === "A").length;
-    result.push({ text: `${brandA} leads in ${aWins} of ${comparisons.length} regions` });
+    const aWins = regionMetrics.filter((m) => m.leader === "A").length;
+    result.push({ 
+      text: `${brandA} лидирует в ${aWins} из ${regionMetrics.length} регионов (${Math.round(aWins/regionMetrics.length*100)}%)` 
+    });
 
-    const bWinRegions = comparisons.filter((c) => c.leader === "B").map((c) => c.region);
-    if (bWinRegions.length > 0) {
-      const shown = bWinRegions.slice(0, 2).map((r) => r.replace(" (England)", "")).join(", ");
-      const suffix = bWinRegions.length > 2 ? ` +${bWinRegions.length - 2} more` : "";
-      result.push({ text: `${brandB} leads in: ${shown}${suffix}` });
-    } else {
-      result.push({ text: `${brandB} leads in no regions` });
-    }
-
-    let maxGap = 0, maxGapRegion = "", maxGapWinner = "";
-    for (const c of comparisons) {
-      const gap = Math.abs(c.countA - c.countB);
-      if (gap > maxGap) { maxGap = gap; maxGapRegion = c.region.replace(" (England)", ""); maxGapWinner = c.countA > c.countB ? brandA : brandB; }
-    }
-    if (maxGap > 0) result.push({ text: `Biggest gap: ${maxGapWinner} leads by ${maxGap} in ${maxGapRegion}` });
-
-    if (comparisons.length > 0) {
-      const avgA = (comparisons.reduce((s, c) => s + getBrandDynamics(c.region, brandA, period), 0) / comparisons.length).toFixed(1);
-      const avgB = (comparisons.reduce((s, c) => s + getBrandDynamics(c.region, brandB, period), 0) / comparisons.length).toFixed(1);
-      const periodLabel = PERIOD_LABELS[period].toLowerCase();
-      result.push({
-        text: `This ${periodLabel}: ${brandA} increased ${Number(avgA) >= 0 ? "+" : ""}${avgA} locations vs ${brandB} ${Number(avgB) >= 0 ? "+" : ""}${avgB}`,
+    // Самый большой разрыв в насыщении
+    const maxGapRegion = regionMetrics.reduce((max, m) => m.saturationGap > max.saturationGap ? m : max);
+    if (maxGapRegion.saturationGap > 0) {
+      const leader = maxGapRegion.saturationA > maxGapRegion.saturationB ? brandA : brandB;
+      result.push({ 
+        text: `Максимальный разрыв насыщения: ${leader} опережает на ${maxGapRegion.saturationGap.toFixed(2)} точек/100k чел. в ${maxGapRegion.region.replace(" (England)", "")}`,
+        icon: Target
       });
     }
 
-    // Major increase line
-    const dynA = comparisons.map((c) => ({ region: c.region.replace(" (England)", ""), val: getBrandDynamics(c.region, brandA, period) })).sort((a, b) => b.val - a.val)[0];
-    const dynB = comparisons.map((c) => ({ region: c.region.replace(" (England)", ""), val: getBrandDynamics(c.region, brandB, period) })).sort((a, b) => b.val - a.val)[0];
-    if (dynA && dynB) {
-      result.push({
-        text: `The major increase of ${brandA} — ${dynA.region} (+${dynA.val}), ${brandB} — ${dynB.region} (+${dynB.val})`,
+    // Зоны активной конфронтации
+    const highConflictRegions = regionMetrics.filter(m => m.battleIndex > 70);
+    if (highConflictRegions.length > 0) {
+      result.push({ 
+        text: `Высокая конкуренция (Battle Index >70%): ${highConflictRegions.map(r => r.region.replace(" (England)", "")).join(", ")}`,
+        icon: Sword
+      });
+    }
+
+    // Где бренды расходятся
+    const lowConflictRegions = regionMetrics.filter(m => m.battleIndex < 30 && m.countA > 0 && m.countB > 0);
+    if (lowConflictRegions.length > 0) {
+      result.push({ 
+        text: `Бренды расходятся (Battle Index <30%): ${lowConflictRegions.map(r => r.region.replace(" (England)", "")).join(", ")}`,
+        icon: Radio
       });
     }
 
     return result;
-  }, [comparisons, brandA, brandB, period]);
+  }, [regionMetrics, brandA, brandB]);
 
   const isLoading = dataLoading || mapLoading;
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white">
 
-      {/* Navbar - слева */}
+      {/* Navbar */}
       <nav className="w-12 flex-shrink-0 bg-[#1e2128] flex flex-col items-center py-3 gap-1 z-20">
+        {/* ... (тот же navbar) ... */}
         <div className="w-8 h-8 mb-4 flex items-center justify-center">
           <svg viewBox="0 0 107.57 137.26" className="w-5 h-5" fill="#9a9d9e">
             <path d="M77,60.2c17.98,6.17,31.89-14.53,21.26-30.29C89.01,16.2,73.41,7.2,55.72,7.2C27.33,7.2,4.31,30.4,4.31,59.03c0,33.56,38.08,63.1,48.7,70.68c1.65,1.18,3.78,1.18,5.43,0c5.79-4.13,19.74-14.8,31.24-29.08c8.85-11,3.92-26.29-8.16-33.59c-7.96-4.81-19.96-4.13-23.53,4.45c-1.76,4.23-1.72,8.9,2.87,13.5C71.27,95.39,40.3,98.85,40.3,74.58c0-19.82,21.52-22.05,28.92-17.89C71.88,58.18,74.48,59.33,77,60.2z" />
@@ -217,11 +438,57 @@ const Compare = () => {
         </button>
       </nav>
 
-      {/* Map - по центру */}
+      {/* Map */}
       <main className="flex-1 relative">
         <div ref={mapRef} className="w-full h-full" />
 
-        {/* Map legend */}
+        {/* Слой-контрол */}
+        <div className="absolute top-5 right-5 z-[1000] bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Карта</h4>
+          <div className="space-y-1.5">
+            <button
+              onClick={() => setActiveLayer("both")}
+              className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
+                activeLayer === "both" ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <div className="flex gap-0.5">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
+              </div>
+              Оба бренда
+            </button>
+            <button
+              onClick={() => setActiveLayer("a")}
+              className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
+                activeLayer === "a" ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_A_COLOR }} />
+              Только {brandA}
+            </button>
+            <button
+              onClick={() => setActiveLayer("b")}
+              className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
+                activeLayer === "b" ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
+              Только {brandB}
+            </button>
+            <button
+              onClick={() => setActiveLayer("conflict")}
+              className={`w-full text-left px-2 py-1 rounded text-xs flex items-center gap-2 ${
+                activeLayer === "conflict" ? "bg-red-50 text-red-600" : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <Crosshair className="w-3 h-3" />
+              Зоны конфликта ⚔️
+            </button>
+          </div>
+        </div>
+
+        {/* Legend */}
         <div className="absolute bottom-5 right-5 z-[1000] bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
           <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Legend</h4>
           <div className="space-y-1.5">
@@ -233,10 +500,14 @@ const Compare = () => {
               <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: BRAND_B_COLOR }} />
               <span className="text-xs text-gray-600">{brandB}</span>
             </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CONFLICT_COLOR }} />
+              <span className="text-xs text-gray-600">Зоны конфликта</span>
+            </div>
           </div>
         </div>
 
-        {/* Insights — все не жирные */}
+        {/* Insights */}
         {insights.length > 0 && (
           <div className="absolute bottom-4 left-4 z-[1000] bg-white border border-gray-200 rounded-lg shadow-sm p-3.5"
                style={{ right: 170 }}>
@@ -245,11 +516,15 @@ const Compare = () => {
               <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Insights</h4>
             </div>
             <div className="space-y-1">
-              {insights.map((item, i) => (
-                <p key={i} className="text-xs text-gray-500">
-                  · {item.text}
-                </p>
-              ))}
+              {insights.map((item, i) => {
+                const Icon = item.icon;
+                return (
+                  <p key={i} className="text-xs text-gray-500 flex items-start gap-1.5">
+                    {Icon && <Icon className="w-3 h-3 mt-0.5 flex-shrink-0 text-gray-400" />}
+                    <span>· {item.text}</span>
+                  </p>
+                );
+              })}
             </div>
           </div>
         )}
@@ -264,8 +539,8 @@ const Compare = () => {
         )}
       </main>
 
-      {/* Правая панель Brand Comparison */}
-      <aside className="w-[380px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col">
+      {/* Правая панель */}
+      <aside className="w-[420px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col">
 
         {/* Header */}
         <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
@@ -281,10 +556,9 @@ const Compare = () => {
           <p className="text-xs text-gray-400 mt-0.5">Great Britain · Head-to-head</p>
         </div>
 
-        {/* Brand selectors — 2 columns on same level */}
+        {/* Brand selectors */}
         <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
           <div className="grid grid-cols-2 gap-3">
-            {/* Brand A */}
             <div>
               <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-1.5">
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_A_COLOR }} />
@@ -299,7 +573,6 @@ const Compare = () => {
                 {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
               </select>
             </div>
-            {/* Brand B */}
             <div>
               <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-1.5">
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_B_COLOR }} />
@@ -317,11 +590,55 @@ const Compare = () => {
           </div>
         </div>
 
+        {/* Radar Chart */}
+        {selectedRegion && showRadar && radarData.length > 0 && (
+          <div className="px-4 py-3 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-gray-700">
+                {selectedRegion.replace(" (England)", "")} · Профили экспансии
+              </h3>
+              <button 
+                onClick={() => setShowRadar(false)}
+                className="text-gray-400 hover:text-gray-600 text-xs"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={radarData}>
+                  <PolarGrid stroke="#e5e7eb" />
+                  <PolarAngleAxis dataKey="metric" tick={{ fontSize: 10, fill: '#6b7280' }} />
+                  <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
+                  <Radar
+                    name={brandA}
+                    dataKey={brandA}
+                    stroke={BRAND_A_COLOR}
+                    fill={BRAND_A_COLOR}
+                    fillOpacity={0.3}
+                  />
+                  <Radar
+                    name={brandB}
+                    dataKey={brandB}
+                    stroke={BRAND_B_COLOR}
+                    fill={BRAND_B_COLOR}
+                    fillOpacity={0.3}
+                  />
+                  <Tooltip 
+                    contentStyle={{ fontSize: 11, padding: '4px 8px' }}
+                    formatter={(value: any) => [`${value}%`, '']}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
         {/* Table area */}
         <div className="flex-1 overflow-y-auto">
           {/* Period selector */}
           <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 sticky top-0 bg-white z-10">
-            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Trend</span>
+            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Тренд</span>
             <div className="flex items-center gap-0.5">
               {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
                 <button
@@ -337,81 +654,93 @@ const Compare = () => {
             </div>
           </div>
 
-          {/* Comparison table — region col allows 2-line wrap */}
+          {/* Table with new metrics */}
           <Table>
             <TableHeader>
               <TableRow className="border-b border-gray-100 bg-gray-50">
-                <TableHead className="text-[10px] h-8 px-3 font-semibold uppercase tracking-wider text-gray-400 w-[130px]">Region</TableHead>
-                <TableHead className="text-[10px] h-8 px-2 text-right font-semibold w-12" style={{ color: BRAND_A_COLOR }}>A</TableHead>
-                <TableHead className="text-[10px] h-8 px-2 text-right font-semibold w-12" style={{ color: BRAND_B_COLOR }}>B</TableHead>
-                <TableHead className="text-[10px] h-8 px-2 font-semibold uppercase tracking-wider text-gray-400">Leader</TableHead>
-                <TableHead className="text-[10px] h-8 px-2 text-right font-semibold text-gray-400 w-12">Δ</TableHead>
+                <TableHead className="text-[10px] h-8 px-2 font-semibold uppercase tracking-wider text-gray-400 w-[100px]">Region</TableHead>
+                <TableHead className="text-[10px] h-8 px-1 text-right font-semibold" style={{ color: BRAND_A_COLOR }}>A</TableHead>
+                <TableHead className="text-[10px] h-8 px-1 text-right font-semibold" style={{ color: BRAND_B_COLOR }}>B</TableHead>
+                <TableHead className="text-[10px] h-8 px-1 font-semibold uppercase tracking-wider text-gray-400">Saturation Gap</TableHead>
+                <TableHead className="text-[10px] h-8 px-1 font-semibold uppercase tracking-wider text-gray-400">Battle</TableHead>
+                <TableHead className="text-[10px] h-8 px-1 text-right font-semibold text-gray-400 w-12">Δ</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {comparisons.map((c) => {
-                const delta = getDelta(c.region);
-                const isSelected = selectedRegion === c.region;
-                // Short region name for display (strip "(England)")
-                const displayName = c.region.replace(" (England)", "");
-                const gap = Math.abs(c.countA - c.countB);
+              {regionMetrics.map((m) => {
+                const isSelected = selectedRegion === m.region;
+                const displayName = m.region.replace(" (England)", "");
+                
                 return (
                   <TableRow
-                    key={c.region}
+                    key={m.region}
                     className={`border-b border-gray-50 cursor-pointer transition-colors ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
-                    onClick={() => setSelectedRegion(c.region)}
+                    onClick={() => setSelectedRegion(m.region)}
                   >
-                    {/* Region — wraps to 2 lines */}
-                    <TableCell className="text-xs py-2 px-3 font-medium leading-tight" style={{ verticalAlign: "middle" }}>
+                    <TableCell className="text-xs py-2 px-2 font-medium">
                       <span className="text-gray-700 break-words">{displayName}</span>
                     </TableCell>
-                    <TableCell className="text-xs py-2 px-2 text-right font-semibold text-gray-800">{c.countA}</TableCell>
-                    <TableCell className="text-xs py-2 px-2 text-right font-semibold text-gray-800">{c.countB}</TableCell>
-                    {/* Leader + gap in grey */}
-                    <TableCell className="text-xs py-2 px-2">
-                      {c.leader === "tie" ? (
-                        <span className="text-gray-300">—</span>
-                      ) : (
-                        <span className="flex flex-col leading-tight">
-                          <span className="font-medium" style={{ color: c.leader === "A" ? BRAND_A_COLOR : BRAND_B_COLOR }}>
-                            {c.leader === "A" ? brandA : brandB}
-                          </span>
-                          {gap > 0 && (
-                            <span className="text-[10px] text-gray-400 tabular-nums">+{gap}</span>
-                          )}
+                    <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countA}</TableCell>
+                    <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countB}</TableCell>
+                    
+                    {/* Saturation Gap */}
+                    <TableCell className="text-xs py-2 px-1">
+                      <div className="flex flex-col gap-0.5">
+                        <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full rounded-full"
+                            style={{ 
+                              width: `${Math.min(100, m.saturationGap * 20)}%`,
+                              backgroundColor: m.saturationA > m.saturationB ? BRAND_A_COLOR : BRAND_B_COLOR
+                            }}
+                          />
+                        </div>
+                        <span className="text-[9px] text-gray-400 tabular-nums">
+                          {m.saturationGap.toFixed(2)}/100k
                         </span>
-                      )}
+                      </div>
                     </TableCell>
-                    <TableCell className={`text-xs py-2 px-2 text-right font-medium tabular-nums ${delta > 0 ? "text-emerald-600" : delta < 0 ? "text-red-500" : "text-gray-400"}`}>
-                      {delta > 0 ? "+" : ""}{delta}
+                    
+                    {/* Battle Index */}
+                    <TableCell className="text-xs py-2 px-1">
+                      <div className="flex items-center gap-1">
+                        <Sword className={`w-3 h-3 ${m.battleIndex > 70 ? "text-red-500" : "text-gray-300"}`} />
+                        <span className={`text-xs font-medium ${m.battleIndex > 70 ? "text-red-600" : "text-gray-600"}`}>
+                          {m.battleIndex}%
+                        </span>
+                      </div>
+                    </TableCell>
+                    
+                    {/* Delta Growth */}
+                    <TableCell className={`text-xs py-2 px-1 text-right font-medium tabular-nums ${
+                      m.growthA - m.growthB > 0 ? "text-emerald-600" : 
+                      m.growthA - m.growthB < 0 ? "text-red-500" : "text-gray-400"
+                    }`}>
+                      {m.growthA - m.growthB > 0 ? "+" : ""}{m.growthA - m.growthB}
                     </TableCell>
                   </TableRow>
                 );
               })}
 
-              {comparisons.length > 0 && (
+              {regionMetrics.length > 0 && (
                 <TableRow className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
-                  <TableCell className="text-xs py-2 px-3 font-bold" style={{ color: overallLeader === "A" ? BRAND_A_COLOR : overallLeader === "B" ? BRAND_B_COLOR : "#374151", backgroundColor: overallLeader === "A" ? `${BRAND_A_COLOR}18` : overallLeader === "B" ? `${BRAND_B_COLOR}18` : "transparent" }}>
-                    Total
+                  <TableCell className="text-xs py-2 px-2 font-bold">Total</TableCell>
+                  <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalA}</TableCell>
+                  <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalB}</TableCell>
+                  <TableCell className="text-xs py-2 px-1">
+                    <span className="text-[10px] text-gray-500">avg gap</span>
                   </TableCell>
-                  <TableCell className="text-xs py-2 px-2 text-right font-bold text-gray-900">{totalA}</TableCell>
-                  <TableCell className="text-xs py-2 px-2 text-right font-bold text-gray-900">{totalB}</TableCell>
-                  <TableCell className="text-xs py-2 px-2">
-                    {overallLeader === "tie" ? (
-                      <span className="text-gray-300">—</span>
-                    ) : (
-                      <span className="flex flex-col leading-tight">
-                        <span className="font-bold" style={{ color: overallLeader === "A" ? BRAND_A_COLOR : BRAND_B_COLOR }}>
-                          {overallLeader === "A" ? brandA : brandB}
-                        </span>
-                        {Math.abs(totalA - totalB) > 0 && (
-                          <span className="text-[10px] text-gray-400 tabular-nums">+{Math.abs(totalA - totalB)}</span>
-                        )}
-                      </span>
-                    )}
+                  <TableCell className="text-xs py-2 px-1">
+                    <div className="flex items-center gap-1">
+                      <Sword className="w-3 h-3 text-gray-400" />
+                      <span className="text-xs font-medium text-gray-600">{totals.avgBattle}%</span>
+                    </div>
                   </TableCell>
-                  <TableCell className={`text-xs py-2 px-2 text-right font-bold tabular-nums ${totalDelta > 0 ? "text-emerald-600" : totalDelta < 0 ? "text-red-500" : "text-gray-400"}`}>
-                    {totalDelta > 0 ? "+" : ""}{totalDelta}
+                  <TableCell className={`text-xs py-2 px-1 text-right font-bold tabular-nums ${
+                    totals.totalDelta > 0 ? "text-emerald-600" : 
+                    totals.totalDelta < 0 ? "text-red-500" : "text-gray-400"
+                  }`}>
+                    {totals.totalDelta > 0 ? "+" : ""}{totals.totalDelta}
                   </TableCell>
                 </TableRow>
               )}
