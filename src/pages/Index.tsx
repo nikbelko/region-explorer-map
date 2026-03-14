@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Map, BarChart2, List, Star, Settings, LogOut,
@@ -10,8 +10,11 @@ import BrandFilters from "@/components/BrandFilters";
 import CategoryFilters, { Category, CATEGORIES, CATEGORY_BRAND_MAP } from "@/components/CategoryFilters";
 import RegionInfoPanel from "@/components/RegionInfoPanel";
 import InsightsPanel from "@/components/InsightsPanel";
-import { Brand, BRANDS, RegionStats } from "@/data/regions";
+import { Brand, BRANDS, RegionStats, BRAND_CONFIGS } from "@/data/regions";
 import { getRegionPopulation, getRegionArea } from "@/data/regionPopulation";
+import { useRestaurantData } from "@/hooks/useRestaurantData";
+import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
+import { point as turfPoint } from "@turf/helpers";
 
 /**
  * GeoJSON ITL125NM values include "(England)" suffix for English regions.
@@ -63,6 +66,56 @@ const COUNTRY_AVG = {
   growthRate: 15
 };
 
+// Функция для расчета статистики региона
+const calculateRegionStats = (
+  regionName: string,
+  restaurants: any[],
+  regionsGeoJson: any,
+  selectedBrands: Brand[]
+): RegionStats | null => {
+  if (!regionsGeoJson || !restaurants.length) return null;
+
+  // Находим нужный регион в GeoJSON
+  const geoRegion = regionsGeoJson.features.find(
+    (f: any) => f.properties?.ITL125NM === regionName
+  );
+  if (!geoRegion) return null;
+
+  // Фильтруем рестораны по региону и выбранным брендам
+  const pointsInRegion = restaurants.filter(r => {
+    if (!selectedBrands.includes(r.brand)) return false;
+    try {
+      return booleanPointInPolygon(turfPoint([r.lng, r.lat]), geoRegion);
+    } catch {
+      return false;
+    }
+  });
+
+  // Группируем по брендам
+  const brandCounts: Record<string, number> = {};
+  pointsInRegion.forEach(r => {
+    brandCounts[r.brand] = (brandCounts[r.brand] || 0) + 1;
+  });
+
+  const totalPoints = pointsInRegion.length;
+  if (totalPoints === 0) return null;
+
+  // Сортируем бренды по количеству
+  const brands = Object.entries(brandCounts)
+    .map(([brand, count]) => ({
+      brand,
+      count,
+      percent: Math.round((count / totalPoints) * 100),
+      color: BRAND_CONFIGS[brand as Brand]?.color || "#6b7280"
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    totalPoints,
+    brands
+  };
+};
+
 // Функция для генерации случайных исторических данных для Sparkline
 const generateSparklineData = (baseValue: number, volatility: number = 0.2): number[] => {
   const quarters = 4;
@@ -70,8 +123,8 @@ const generateSparklineData = (baseValue: number, volatility: number = 0.2): num
   let current = baseValue;
   
   for (let i = 0; i < quarters; i++) {
-    const change = (Math.random() - 0.5) * volatility * baseValue;
-    current = Math.max(0, current + change);
+    const change = (Math.random() - 0.5) * volatility * Math.abs(baseValue);
+    current = current + change;
     data.push(Math.round(current * 10) / 10);
   }
   
@@ -294,28 +347,29 @@ const RegionSelector = ({ isOpen, onClose, onSelectRegion, selectedRegion }: {
     </>
   );
 };
-// ── КОМПОНЕНТ RANKINGMODAL - ИСПРАВЛЕННАЯ ВЕРСИЯ ──
+
+// ── КОМПОНЕНТ RANKINGMODAL - С ПРЕДЗАГРУЖЕННЫМИ ДАННЫМИ ──
 const RankingModal = ({ 
   isOpen, 
   onClose, 
-  regionStats,
+  allRegionsStats,
   onSelectRegion 
 }: { 
   isOpen: boolean; 
   onClose: () => void; 
-  regionStats: Record<string, RegionStats> | null;
+  allRegionsStats: Record<string, RegionStats> | null;
   onSelectRegion: (region: string) => void;
 }) => {
   const [sortField, setSortField] = useState<string>("score");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
-  // Мемоизируем данные для таблицы - ВСЕ ДАННЫЕ В ОДНОМ useMemo
+  // Данные для таблицы уже предзагружены через allRegionsStats
   const regionData = useMemo(() => {
-    if (!regionStats) return [];
+    if (!allRegionsStats) return [];
     
     return DISPLAY_REGIONS.map(region => {
-      const stats = regionStats[region];
+      const stats = allRegionsStats[region];
       const population = getRegionPopulation(region);
       const area = getRegionArea(region);
       const totalPoints = stats?.totalPoints ?? 0;
@@ -333,8 +387,11 @@ const RankingModal = ({
         ? Math.round((top3Brands.reduce((s, b) => s + b.count, 0) / totalPoints) * 100)
         : 0;
       
-      const growth = 15; // Заглушка
+      // Используем случайный growth для демонстрации
+      const growth = Math.round((Math.random() * 30 - 5) * 10) / 10;
       const score = calculateAttractivenessScore(saturation, density, growth);
+      
+      // Генерируем данные для sparkline
       const historicalGrowth = generateSparklineData(growth, 0.3);
       
       return {
@@ -347,24 +404,21 @@ const RankingModal = ({
         historicalGrowth
       };
     });
-  }, [regionStats]); // Единственная зависимость
+  }, [allRegionsStats]);
 
-  // Сортировка данных - отдельный useMemo
+  // Сортировка данных
   const sortedData = useMemo(() => {
     if (!regionData.length) return [];
     
     return [...regionData].sort((a, b) => {
-      // Обработка строкового поля region
       if (sortField === "region") {
         const comparison = a.region.localeCompare(b.region);
         return sortDirection === "desc" ? -comparison : comparison;
       }
       
-      // Для числовых полей
       const aVal = a[sortField as keyof typeof a] ?? 0;
       const bVal = b[sortField as keyof typeof b] ?? 0;
       
-      // Приводим к числам
       const aNum = typeof aVal === 'number' ? aVal : 0;
       const bNum = typeof bVal === 'number' ? bVal : 0;
       
@@ -575,9 +629,11 @@ const RankingModal = ({
     </>
   );
 };
+
 // ── Main page ─────────────────────────────────────────────────
 const Index = () => {
   const navigate = useNavigate();
+  const { restaurants } = useRestaurantData();
 
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [flyToRegion, setFlyToRegion] = useState<string | null>(null);
@@ -585,6 +641,7 @@ const Index = () => {
   const [selectedCategories, setSelectedCategories] = useState<Category[]>([...CATEGORIES]);
   const [regionStats, setRegionStats] = useState<RegionStats | null>(null);
   const [allRegionsStats, setAllRegionsStats] = useState<Record<string, RegionStats> | null>(null);
+  const [regionsGeoJson, setRegionsGeoJson] = useState<any>(null);
   const [brandSearch, setBrandSearch] = useState("");
   const [filterPanelOpen, setFilterPanelOpen] = useState(true);
   const [countryOpen, setCountryOpen] = useState(false);
@@ -592,10 +649,38 @@ const Index = () => {
   const [regionSelectorOpen, setRegionSelectorOpen] = useState(false);
   const [rankingModalOpen, setRankingModalOpen] = useState(false);
 
+  // Загружаем GeoJSON при монтировании
+  useEffect(() => {
+    fetch("/data/uk-regions.geojson")
+      .then((res) => res.json())
+      .then((data) => {
+        setRegionsGeoJson(data);
+      })
+      .catch((err) => console.error("Failed to load regions GeoJSON:", err));
+  }, []);
+
+  // Предзагружаем данные для всех регионов при изменении ресторанов или выбранных брендов
+  useEffect(() => {
+    if (!regionsGeoJson || !restaurants.length) return;
+
+    const stats: Record<string, RegionStats> = {};
+    
+    // Для каждого отображаемого региона считаем статистику
+    DISPLAY_REGIONS.forEach(region => {
+      const geoName = DISPLAY_TO_GEO[region] || region;
+      const regionStat = calculateRegionStats(geoName, restaurants, regionsGeoJson, selectedBrands);
+      if (regionStat) {
+        stats[region] = regionStat;
+      }
+    });
+
+    setAllRegionsStats(stats);
+  }, [regionsGeoJson, restaurants, selectedBrands]);
+
   const handleRegionStats = useCallback((stats: RegionStats | null) => {
     setRegionStats(stats);
     
-    // Сохраняем статистику для всех регионов (в реальном приложении нужно собирать со всех)
+    // Обновляем статистику для текущего региона в общем хранилище
     if (stats && selectedRegion) {
       setAllRegionsStats(prev => ({
         ...prev,
@@ -913,7 +998,7 @@ const Index = () => {
               <RankingModal
                 isOpen={rankingModalOpen}
                 onClose={() => setRankingModalOpen(false)}
-                regionStats={allRegionsStats}
+                allRegionsStats={allRegionsStats}
                 onSelectRegion={(region) => {
                   handleSelectRegion(region);
                 }}
