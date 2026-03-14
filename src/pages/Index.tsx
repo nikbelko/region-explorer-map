@@ -835,14 +835,25 @@ const Index = () => {
             </>
           )}
 
-          {/* Кнопка Show Full Ranking */}
-          <button
-            onClick={() => setRankingModalOpen(true)}
-            className="ml-auto flex items-center gap-1.5 text-xs bg-blue-600 text-white px-3 py-1.5 rounded-full font-medium hover:bg-blue-700 transition-colors shadow-sm"
-          >
-            <BarChart2 className="w-3.5 h-3.5" />
-            Show Full Ranking
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            {/* Кнопка Brand Comparison */}
+            <button
+              onClick={() => navigate("/compare")}
+              className="flex items-center gap-1.5 text-xs bg-orange-500 text-white px-3 py-1.5 rounded-full font-medium hover:bg-orange-600 transition-colors shadow-sm"
+            >
+              <BarChart2 className="w-3.5 h-3.5" />
+              Brand Comparison
+            </button>
+
+            {/* Кнопка Show Full Ranking */}
+            <button
+              onClick={() => setRankingModalOpen(true)}
+              className="flex items-center gap-1.5 text-xs bg-blue-600 text-white px-3 py-1.5 rounded-full font-medium hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Show Full Ranking
+            </button>
+          </div>
         </div>
 
         {/* ── Sidebar + map + right panel ── */}
