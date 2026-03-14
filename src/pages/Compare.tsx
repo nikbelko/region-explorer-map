@@ -584,7 +584,7 @@ const Compare = () => {
           </div>
 
           {/* Ranking section with collapsible Radar */}
-          <div className="border-b border-gray-200">
+          <div className="border-b border-gray-200 flex-shrink-0">
             <div 
               className="px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-gray-50"
               onClick={() => setShowRadar(!showRadar)}
@@ -642,124 +642,131 @@ const Compare = () => {
             )}
           </div>
 
-          {/* Table */}
-          <div className="flex-1 overflow-y-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b border-gray-100 bg-gray-50">
-                  <TableHead className="text-[10px] h-8 px-2 font-semibold uppercase tracking-wider text-gray-400 w-[100px]">Region</TableHead>
-                  <TableHead className="text-[10px] h-8 px-1 text-right font-semibold" style={{ color: BRAND_A_COLOR }}>A</TableHead>
-                  <TableHead className="text-[10px] h-8 px-1 text-right font-semibold" style={{ color: BRAND_B_COLOR }}>B</TableHead>
-                  <TableHead className="text-[10px] h-8 px-1 text-right font-semibold uppercase tracking-wider text-gray-400">Δ</TableHead>
-                  
-                  {/* Saturation Gap header with tooltip */}
-                  <TableHead className="text-[10px] h-8 px-1 font-semibold uppercase tracking-wider text-gray-400">
-                    <UITooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1 cursor-help">
-                          <span>Saturation gap</span>
-                          <Info className="w-2.5 h-2.5 text-gray-400" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-3 py-1.5 text-xs">
-                        Saturation index difference
-                      </TooltipContent>
-                    </UITooltip>
-                  </TableHead>
-                  
-                  {/* Battle header with tooltip */}
-                  <TableHead className="text-[10px] h-8 px-1 font-semibold uppercase tracking-wider text-gray-400">
-                    <UITooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1 cursor-help">
-                          <span>Battle</span>
-                          <Info className="w-2.5 h-2.5 text-gray-400" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-3 py-1.5 text-xs">
-                        Percent of A near B locations in 500m
-                      </TooltipContent>
-                    </UITooltip>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {regionMetrics.map((m) => {
-                  const isSelected = selectedRegion === m.region;
-                  const displayName = m.region.replace(" (England)", "");
-                  const delta = Math.abs(m.countA - m.countB);
-                  const leader = m.countA > m.countB ? brandA : brandB;
-                  
-                  return (
-                    <TableRow
-                      key={m.region}
-                      className={`border-b border-gray-50 cursor-pointer transition-colors ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
-                      onClick={() => setSelectedRegion(m.region)}
-                    >
-                      <TableCell className="text-xs py-2 px-2 font-medium">
-                        <span className="text-gray-700 break-words">{displayName}</span>
-                      </TableCell>
-                      <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countA}</TableCell>
-                      <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countB}</TableCell>
-                      
-                      {/* Delta */}
-                      <TableCell className="text-xs py-2 px-1 text-right">
-                        <div className="flex flex-col items-end">
-                          <span className="text-xs font-medium text-gray-800">{delta}</span>
-                          <span className="text-[9px] text-gray-400">{leader}</span>
-                        </div>
-                      </TableCell>
-                      
-                      {/* Saturation Gap */}
-                      <TableCell className="text-xs py-2 px-1">
-                        <div className="flex flex-col gap-0.5">
-                          <div className="w-14 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full rounded-full"
-                              style={{ 
-                                width: `${Math.min(100, m.saturationGap * 20)}%`,
-                                backgroundColor: m.saturationA > m.saturationB ? BRAND_A_COLOR : BRAND_B_COLOR
-                              }}
-                            />
+          {/* Table with sticky header */}
+          <div className="flex-1 overflow-y-auto relative">
+            <div className="sticky top-0 z-10 bg-white">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-gray-200 bg-gray-50">
+                    <TableHead className="text-[10px] h-9 px-2 font-semibold uppercase tracking-wider text-gray-400 w-[100px]">Region</TableHead>
+                    <TableHead className="text-[10px] h-9 px-1 text-center font-semibold w-12" style={{ color: BRAND_A_COLOR }}>A</TableHead>
+                    <TableHead className="text-[10px] h-9 px-1 text-center font-semibold w-12" style={{ color: BRAND_B_COLOR }}>B</TableHead>
+                    <TableHead className="text-[10px] h-9 px-1 text-center font-semibold uppercase tracking-wider text-gray-400 w-12">Δ</TableHead>
+                    
+                    {/* Saturation Gap header with tooltip */}
+                    <TableHead className="text-[10px] h-9 px-1 font-semibold uppercase tracking-wider text-gray-400">
+                      <UITooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1 cursor-help">
+                            <span>Saturation gap</span>
+                            <Info className="w-2.5 h-2.5 text-gray-400" />
                           </div>
-                          <span className="text-[9px] text-gray-400 tabular-nums">
-                            {m.saturationGap.toFixed(2)}/100k
-                          </span>
-                        </div>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-3 py-1.5 text-xs">
+                          Saturation index difference
+                        </TooltipContent>
+                      </UITooltip>
+                    </TableHead>
+                    
+                    {/* Battle header with tooltip */}
+                    <TableHead className="text-[10px] h-9 px-1 font-semibold uppercase tracking-wider text-gray-400">
+                      <UITooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1 cursor-help">
+                            <span>Battle</span>
+                            <Info className="w-2.5 h-2.5 text-gray-400" />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-3 py-1.5 text-xs">
+                          Percent of A near B locations in 500m
+                        </TooltipContent>
+                      </UITooltip>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+              </Table>
+            </div>
+            
+            <div className="overflow-y-auto">
+              <Table>
+                <TableBody>
+                  {regionMetrics.map((m) => {
+                    const isSelected = selectedRegion === m.region;
+                    const displayName = m.region.replace(" (England)", "");
+                    const delta = Math.abs(m.countA - m.countB);
+                    const leader = m.countA > m.countB ? brandA : brandB;
+                    
+                    return (
+                      <TableRow
+                        key={m.region}
+                        className={`border-b border-gray-50 cursor-pointer transition-colors ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
+                        onClick={() => setSelectedRegion(m.region)}
+                      >
+                        <TableCell className="text-xs py-2 px-2 font-medium">
+                          <span className="text-gray-700 break-words">{displayName}</span>
+                        </TableCell>
+                        <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countA}</TableCell>
+                        <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countB}</TableCell>
+                        
+                        {/* Delta */}
+                        <TableCell className="text-xs py-2 px-1 text-right">
+                          <div className="flex flex-col items-end">
+                            <span className="text-xs font-medium text-gray-800">{delta}</span>
+                            <span className="text-[9px] text-gray-400">{leader}</span>
+                          </div>
+                        </TableCell>
+                        
+                        {/* Saturation Gap */}
+                        <TableCell className="text-xs py-2 px-1">
+                          <div className="flex flex-col gap-0.5">
+                            <div className="w-14 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full rounded-full"
+                                style={{ 
+                                  width: `${Math.min(100, m.saturationGap * 20)}%`,
+                                  backgroundColor: m.saturationA > m.saturationB ? BRAND_A_COLOR : BRAND_B_COLOR
+                                }}
+                              />
+                            </div>
+                            <span className="text-[9px] text-gray-400 tabular-nums">
+                              {m.saturationGap.toFixed(2)}/100k
+                            </span>
+                          </div>
+                        </TableCell>
+                        
+                        {/* Battle Index */}
+                        <TableCell className="text-xs py-2 px-1">
+                          <div className="flex items-center gap-1">
+                            <Sword className={`w-3 h-3 ${m.battleIndex > 70 ? "text-red-500" : "text-gray-300"}`} />
+                            <span className={`text-xs font-medium ${m.battleIndex > 70 ? "text-red-600" : "text-gray-600"}`}>
+                              {m.battleIndex}%
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+
+                  {regionMetrics.length > 0 && (
+                    <TableRow className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+                      <TableCell className="text-xs py-2 px-2 font-bold">Total</TableCell>
+                      <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalA}</TableCell>
+                      <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalB}</TableCell>
+                      <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalDelta}</TableCell>
+                      <TableCell className="text-xs py-2 px-1">
+                        <span className="text-[10px] text-gray-500">avg {totals.avgSaturationGap}</span>
                       </TableCell>
-                      
-                      {/* Battle Index */}
                       <TableCell className="text-xs py-2 px-1">
                         <div className="flex items-center gap-1">
-                          <Sword className={`w-3 h-3 ${m.battleIndex > 70 ? "text-red-500" : "text-gray-300"}`} />
-                          <span className={`text-xs font-medium ${m.battleIndex > 70 ? "text-red-600" : "text-gray-600"}`}>
-                            {m.battleIndex}%
-                          </span>
+                          <Sword className="w-3 h-3 text-gray-400" />
+                          <span className="text-xs font-medium text-gray-600">{totals.avgBattle}%</span>
                         </div>
                       </TableCell>
                     </TableRow>
-                  );
-                })}
-
-                {regionMetrics.length > 0 && (
-                  <TableRow className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
-                    <TableCell className="text-xs py-2 px-2 font-bold">Total</TableCell>
-                    <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalA}</TableCell>
-                    <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalB}</TableCell>
-                    <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalDelta}</TableCell>
-                    <TableCell className="text-xs py-2 px-1">
-                      <span className="text-[10px] text-gray-500">avg {totals.avgSaturationGap}</span>
-                    </TableCell>
-                    <TableCell className="text-xs py-2 px-1">
-                      <div className="flex items-center gap-1">
-                        <Sword className="w-3 h-3 text-gray-400" />
-                        <span className="text-xs font-medium text-gray-600">{totals.avgBattle}%</span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         </aside>
       </div>
