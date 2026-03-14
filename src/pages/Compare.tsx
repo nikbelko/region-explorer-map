@@ -533,10 +533,10 @@ const Compare = () => {
         </main>
 
         {/* Right panel */}
-        <aside className="w-[440px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col">
+        <aside className="w-[480px] flex-shrink-0 border-l border-gray-200 bg-white flex flex-col">
 
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
+          <div className="px-5 py-3 border-b border-gray-200 flex-shrink-0">
             <div className="flex items-center gap-1 text-xs text-gray-400 mb-2.5">
               <button onClick={() => navigate("/")} className="font-medium text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1">
                 <ArrowLeft className="w-3 h-3" />
@@ -550,8 +550,8 @@ const Compare = () => {
           </div>
 
           {/* Brand selectors */}
-          <div className="px-4 py-3 border-b border-gray-200 flex-shrink-0">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="px-5 py-3 border-b border-gray-200 flex-shrink-0">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 mb-1.5">
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: BRAND_A_COLOR }} />
@@ -586,7 +586,7 @@ const Compare = () => {
           {/* Ranking section with collapsible Radar */}
           <div className="border-b border-gray-200 flex-shrink-0">
             <div 
-              className="px-4 py-2 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+              className="px-5 py-2 flex items-center justify-between cursor-pointer hover:bg-gray-50"
               onClick={() => setShowRadar(!showRadar)}
             >
               <div className="flex items-center gap-2">
@@ -604,7 +604,7 @@ const Compare = () => {
             
             {/* Radar Chart */}
             {showRadar && selectedRegion && radarData.length > 0 && (
-              <div className="px-4 pb-3">
+              <div className="px-5 pb-3">
                 <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart data={radarData}>
@@ -634,7 +634,7 @@ const Compare = () => {
             
             {/* Empty state when no region selected */}
             {showRadar && !selectedRegion && (
-              <div className="px-4 pb-3">
+              <div className="px-5 pb-3">
                 <div className="h-48 flex items-center justify-center border border-dashed border-gray-200 rounded-lg">
                   <p className="text-xs text-gray-400">Click on a region to see ranking</p>
                 </div>
@@ -643,41 +643,41 @@ const Compare = () => {
           </div>
 
           {/* Table with sticky header */}
-          <div className="flex-1 overflow-y-auto relative">
-            <div className="sticky top-0 z-10 bg-white">
+          <div className="flex-1 overflow-y-auto relative" style={{ zIndex: 1 }}>
+            <div className="sticky top-0 z-20 bg-white border-b border-gray-200">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-b border-gray-200 bg-gray-50">
-                    <TableHead className="text-[10px] h-9 px-2 font-semibold uppercase tracking-wider text-gray-400 w-[100px]">Region</TableHead>
-                    <TableHead className="text-[10px] h-9 px-1 text-center font-semibold w-12" style={{ color: BRAND_A_COLOR }}>A</TableHead>
-                    <TableHead className="text-[10px] h-9 px-1 text-center font-semibold w-12" style={{ color: BRAND_B_COLOR }}>B</TableHead>
-                    <TableHead className="text-[10px] h-9 px-1 text-center font-semibold uppercase tracking-wider text-gray-400 w-12">Δ</TableHead>
+                  <TableRow className="bg-gray-50">
+                    <TableHead className="text-[10px] h-9 px-3 font-semibold uppercase tracking-wider text-gray-400 w-[110px]">Region</TableHead>
+                    <TableHead className="text-[10px] h-9 px-2 text-center font-semibold w-12" style={{ color: BRAND_A_COLOR }}>A</TableHead>
+                    <TableHead className="text-[10px] h-9 px-2 text-center font-semibold w-12" style={{ color: BRAND_B_COLOR }}>B</TableHead>
+                    <TableHead className="text-[10px] h-9 px-2 text-center font-semibold uppercase tracking-wider text-gray-400 w-12">Δ</TableHead>
                     
                     {/* Saturation Gap header with tooltip */}
-                    <TableHead className="text-[10px] h-9 px-1 font-semibold uppercase tracking-wider text-gray-400">
-                      <UITooltip>
+                    <TableHead className="text-[10px] h-9 px-2 font-semibold uppercase tracking-wider text-gray-400">
+                      <UITooltip delayDuration={300}>
                         <TooltipTrigger asChild>
                           <div className="flex items-center gap-1 cursor-help">
                             <span>Saturation gap</span>
                             <Info className="w-2.5 h-2.5 text-gray-400" />
                           </div>
                         </TooltipTrigger>
-                        <TooltipContent className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-3 py-1.5 text-xs">
+                        <TooltipContent className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-3 py-1.5 text-xs z-50">
                           Saturation index difference
                         </TooltipContent>
                       </UITooltip>
                     </TableHead>
                     
                     {/* Battle header with tooltip */}
-                    <TableHead className="text-[10px] h-9 px-1 font-semibold uppercase tracking-wider text-gray-400">
-                      <UITooltip>
+                    <TableHead className="text-[10px] h-9 px-2 font-semibold uppercase tracking-wider text-gray-400">
+                      <UITooltip delayDuration={300}>
                         <TooltipTrigger asChild>
                           <div className="flex items-center gap-1 cursor-help">
                             <span>Battle</span>
                             <Info className="w-2.5 h-2.5 text-gray-400" />
                           </div>
                         </TooltipTrigger>
-                        <TooltipContent className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-3 py-1.5 text-xs">
+                        <TooltipContent className="bg-[#1a1d24] text-white border-none rounded-lg shadow-lg px-3 py-1.5 text-xs z-50">
                           Percent of A near B locations in 500m
                         </TooltipContent>
                       </UITooltip>
@@ -702,14 +702,14 @@ const Compare = () => {
                         className={`border-b border-gray-50 cursor-pointer transition-colors ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}`}
                         onClick={() => setSelectedRegion(m.region)}
                       >
-                        <TableCell className="text-xs py-2 px-2 font-medium">
+                        <TableCell className="text-xs py-2 px-3 font-medium">
                           <span className="text-gray-700 break-words">{displayName}</span>
                         </TableCell>
-                        <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countA}</TableCell>
-                        <TableCell className="text-xs py-2 px-1 text-right font-semibold text-gray-800">{m.countB}</TableCell>
+                        <TableCell className="text-xs py-2 px-2 text-right font-semibold text-gray-800 w-12">{m.countA}</TableCell>
+                        <TableCell className="text-xs py-2 px-2 text-right font-semibold text-gray-800 w-12">{m.countB}</TableCell>
                         
                         {/* Delta */}
-                        <TableCell className="text-xs py-2 px-1 text-right">
+                        <TableCell className="text-xs py-2 px-2 text-right w-12">
                           <div className="flex flex-col items-end">
                             <span className="text-xs font-medium text-gray-800">{delta}</span>
                             <span className="text-[9px] text-gray-400">{leader}</span>
@@ -717,9 +717,9 @@ const Compare = () => {
                         </TableCell>
                         
                         {/* Saturation Gap */}
-                        <TableCell className="text-xs py-2 px-1">
+                        <TableCell className="text-xs py-2 px-2">
                           <div className="flex flex-col gap-0.5">
-                            <div className="w-14 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                               <div 
                                 className="h-full rounded-full"
                                 style={{ 
@@ -735,7 +735,7 @@ const Compare = () => {
                         </TableCell>
                         
                         {/* Battle Index */}
-                        <TableCell className="text-xs py-2 px-1">
+                        <TableCell className="text-xs py-2 px-2">
                           <div className="flex items-center gap-1">
                             <Sword className={`w-3 h-3 ${m.battleIndex > 70 ? "text-red-500" : "text-gray-300"}`} />
                             <span className={`text-xs font-medium ${m.battleIndex > 70 ? "text-red-600" : "text-gray-600"}`}>
@@ -749,14 +749,14 @@ const Compare = () => {
 
                   {regionMetrics.length > 0 && (
                     <TableRow className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
-                      <TableCell className="text-xs py-2 px-2 font-bold">Total</TableCell>
-                      <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalA}</TableCell>
-                      <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalB}</TableCell>
-                      <TableCell className="text-xs py-2 px-1 text-right font-bold text-gray-900">{totals.totalDelta}</TableCell>
-                      <TableCell className="text-xs py-2 px-1">
+                      <TableCell className="text-xs py-2 px-3 font-bold">Total</TableCell>
+                      <TableCell className="text-xs py-2 px-2 text-right font-bold text-gray-900">{totals.totalA}</TableCell>
+                      <TableCell className="text-xs py-2 px-2 text-right font-bold text-gray-900">{totals.totalB}</TableCell>
+                      <TableCell className="text-xs py-2 px-2 text-right font-bold text-gray-900">{totals.totalDelta}</TableCell>
+                      <TableCell className="text-xs py-2 px-2">
                         <span className="text-[10px] text-gray-500">avg {totals.avgSaturationGap}</span>
                       </TableCell>
-                      <TableCell className="text-xs py-2 px-1">
+                      <TableCell className="text-xs py-2 px-2">
                         <div className="flex items-center gap-1">
                           <Sword className="w-3 h-3 text-gray-400" />
                           <span className="text-xs font-medium text-gray-600">{totals.avgBattle}%</span>
