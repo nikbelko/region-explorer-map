@@ -294,7 +294,6 @@ const RegionSelector = ({ isOpen, onClose, onSelectRegion, selectedRegion }: {
     </>
   );
 };
-
 // ── Компонент RankingModal ───────────────────────────────────
 const RankingModal = ({ 
   isOpen, 
@@ -311,12 +310,12 @@ const RankingModal = ({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
-  if (!isOpen) return null;
-
-  // Собираем данные для всех регионов
+  // Мемоизируем данные для таблицы, чтобы избежать лишних пересчетов
   const regionData = useMemo(() => {
+    if (!regionStats) return [];
+    
     return DISPLAY_REGIONS.map(region => {
-      const stats = regionStats?.[region];
+      const stats = regionStats[region];
       const population = getRegionPopulation(region);
       const area = getRegionArea(region);
       const totalPoints = stats?.totalPoints ?? 0;
@@ -334,15 +333,16 @@ const RankingModal = ({
         ? Math.round((top3Brands.reduce((s, b) => s + b.count, 0) / totalPoints) * 100)
         : 0;
       
-      const growth = stats?.brands.reduce(
-        (sum, b) => sum + (Math.random() * 30 - 10), // Заглушка, в реальности использовать getBrandDynamics
-        0
-      ) ?? 0;
+      // Используем фиксированное значение для роста, чтобы избежать случайных изменений при ререндерах
+      const growth = 15; // Заглушка, в реальности нужно использовать getBrandDynamics
       
       const score = calculateAttractivenessScore(saturation, density, growth);
       
-      // Генерируем исторические данные для Sparkline
-      const historicalGrowth = generateSparklineData(growth, 0.3);
+      // Генерируем исторические данные для Sparkline (тоже мемоизируем)
+      const historicalGrowth = useMemo(() => 
+        generateSparklineData(growth, 0.3), 
+        [growth]
+      );
       
       return {
         region,
@@ -354,24 +354,39 @@ const RankingModal = ({
         historicalGrowth
       };
     });
-  }, [regionStats]);
+  }, [regionStats]); // Зависимость только от regionStats
 
   // Сортировка данных
   const sortedData = useMemo(() => {
-    const sorted = [...regionData].sort((a, b) => {
+    if (!regionData.length) return [];
+    
+    return [...regionData].sort((a, b) => {
       let aVal = a[sortField as keyof typeof a];
       let bVal = b[sortField as keyof typeof b];
       
+      // Обработка null значений
       if (aVal === null) aVal = 0;
       if (bVal === null) bVal = 0;
       
+      // Для строковых полей (регион) используем localeCompare
+      if (sortField === "region") {
+        const aStr = aVal as string;
+        const bStr = bVal as string;
+        return sortDirection === "desc" 
+          ? bStr.localeCompare(aStr)
+          : aStr.localeCompare(bStr);
+      }
+      
+      // Для числовых полей
+      const aNum = aVal as number;
+      const bNum = bVal as number;
+      
       if (sortDirection === "desc") {
-        return (bVal as number) - (aVal as number);
+        return bNum - aNum;
       } else {
-        return (aVal as number) - (bVal as number);
+        return aNum - bNum;
       }
     });
-    return sorted;
   }, [regionData, sortField, sortDirection]);
 
   const handleSort = (field: string) => {
@@ -384,6 +399,8 @@ const RankingModal = ({
   };
 
   const handleExportCSV = () => {
+    if (!sortedData.length) return;
+    
     const headers = ["Region", "Saturation", "Density", "Top-3 Share", "Growth", "Score"];
     const rows = sortedData.map(d => [
       d.region,
@@ -395,20 +412,20 @@ const RankingModal = ({
     ]);
     
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'region_ranking.csv';
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
     setExportMenuOpen(false);
   };
 
-  const handleSelectRow = (region: string) => {
-    onSelectRegion(region);
-    onClose();
-  };
+  // Ранний возврат, если модалка не открыта
+  if (!isOpen) return null;
 
   return (
     <>
@@ -443,7 +460,7 @@ const RankingModal = ({
                 <span className="text-xs">Export</span>
               </button>
               {exportMenuOpen && (
-                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-10">
+                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-10 min-w-[140px]">
                   <button
                     onClick={handleExportCSV}
                     className="w-full text-left px-4 py-2 text-xs hover:bg-blue-50 transition-colors"
@@ -452,7 +469,7 @@ const RankingModal = ({
                   </button>
                   <button
                     onClick={() => {
-                      // Excel export logic here
+                      // Здесь можно добавить экспорт в Excel
                       setExportMenuOpen(false);
                     }}
                     className="w-full text-left px-4 py-2 text-xs hover:bg-blue-50 transition-colors"
@@ -475,114 +492,120 @@ const RankingModal = ({
 
         {/* Таблица */}
         <div className="flex-1 overflow-auto p-4">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="bg-gray-50 border-b-2 border-gray-200">
-                <th 
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort("region")}
-                >
-                  Region
-                  {sortField === "region" && (
-                    <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
-                  )}
-                </th>
-                <th 
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort("saturation")}
-                >
-                  Saturation (per 100k)
-                  {sortField === "saturation" && (
-                    <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
-                  )}
-                </th>
-                <th 
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort("density")}
-                >
-                  Density (per km²)
-                  {sortField === "density" && (
-                    <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
-                  )}
-                </th>
-                <th 
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort("top3Share")}
-                >
-                  Top-3 Share
-                  {sortField === "top3Share" && (
-                    <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
-                  )}
-                </th>
-                <th 
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort("growth")}
-                >
-                  Growth Trend
-                  {sortField === "growth" && (
-                    <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
-                  )}
-                </th>
-                <th 
-                  className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort("score")}
-                >
-                  Attractiveness Score
-                  {sortField === "score" && (
-                    <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
-                  )}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedData.map((row, index) => (
-                <tr 
-                  key={row.region}
-                  className="border-b border-gray-100 hover:bg-blue-50/50 cursor-pointer transition-colors"
-                  onClick={() => handleSelectRow(row.region)}
-                >
-                  <td className="px-4 py-3 font-medium text-gray-900">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400 w-5">#{index + 1}</span>
-                      {row.region}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`font-medium ${getIndicatorColor(row.saturation, "saturation")}`}>
-                      {row.saturation?.toFixed(1) || "—"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`font-medium ${getIndicatorColor(row.density, "density")}`}>
-                      {row.density?.toFixed(1) || "—"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-medium">{row.top3Share}%</td>
-                  <td className="px-4 py-3">
-                    <Sparkline data={row.historicalGrowth} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-blue-500 rounded-full"
-                          style={{ width: `${row.score}%` }}
-                        />
-                      </div>
-                      <span className={`font-bold ${
-                        row.score > 80 ? "text-emerald-600" : 
-                        row.score > 60 ? "text-blue-600" : 
-                        row.score > 40 ? "text-yellow-600" : 
-                        "text-red-600"
-                      }`}>
-                        {row.score}
-                      </span>
-                    </div>
-                  </td>
+          {sortedData.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-sm text-gray-400">No data available</p>
+            </div>
+          ) : (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border-b-2 border-gray-200">
+                  <th 
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort("region")}
+                  >
+                    Region
+                    {sortField === "region" && (
+                      <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
+                    )}
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort("saturation")}
+                  >
+                    Saturation (per 100k)
+                    {sortField === "saturation" && (
+                      <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
+                    )}
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort("density")}
+                  >
+                    Density (per km²)
+                    {sortField === "density" && (
+                      <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
+                    )}
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort("top3Share")}
+                  >
+                    Top-3 Share
+                    {sortField === "top3Share" && (
+                      <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
+                    )}
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort("growth")}
+                  >
+                    Growth Trend
+                    {sortField === "growth" && (
+                      <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
+                    )}
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort("score")}
+                  >
+                    Attractiveness Score
+                    {sortField === "score" && (
+                      <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
+                    )}
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sortedData.map((row, index) => (
+                  <tr 
+                    key={row.region}
+                    className="border-b border-gray-100 hover:bg-blue-50/50 cursor-pointer transition-colors"
+                    onClick={() => onSelectRegion(row.region)}
+                  >
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 w-5">#{index + 1}</span>
+                        {row.region}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`font-medium ${getIndicatorColor(row.saturation, "saturation")}`}>
+                        {row.saturation?.toFixed(1) || "—"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`font-medium ${getIndicatorColor(row.density, "density")}`}>
+                        {row.density?.toFixed(1) || "—"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-medium">{row.top3Share}%</td>
+                    <td className="px-4 py-3">
+                      <Sparkline data={row.historicalGrowth} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-blue-500 rounded-full"
+                            style={{ width: `${row.score}%` }}
+                          />
+                        </div>
+                        <span className={`font-bold ${
+                          row.score > 80 ? "text-emerald-600" : 
+                          row.score > 60 ? "text-blue-600" : 
+                          row.score > 40 ? "text-yellow-600" : 
+                          "text-red-600"
+                        }`}>
+                          {row.score}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Подвал с информацией */}
