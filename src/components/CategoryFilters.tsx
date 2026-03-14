@@ -68,7 +68,7 @@ const CategoryFilters = ({
                 {cat}
               </span>
               <span className="text-[10px] text-gray-400">
-                {CATEGORY_BRAND_MAP[cat].length} chain{CATEGORY_BRAND_MAP[cat].length > 1 ? "s" : ""}
+                {CATEGORY_BRAND_MAP[cat].length} brand{CATEGORY_BRAND_MAP[cat].length > 1 ? "s" : ""}
               </span>
               {isSelected && (
                 <svg className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
