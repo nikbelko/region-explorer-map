@@ -131,17 +131,6 @@ const generateSparklineData = (baseValue: number, volatility: number = 0.2): num
   return data;
 };
 
-// Функция для расчета среднего количества точек по всем регионам
-const calculateAvgLocations = useMemo(() => {
-  if (!allRegionsStats || Object.keys(allRegionsStats).length === 0) return 0;
-  
-  const totalLocations = Object.values(allRegionsStats).reduce(
-    (sum, stats) => sum + (stats?.totalPoints || 0), 
-    0
-  );
-  
-  return Math.round(totalLocations / Object.keys(allRegionsStats).length);
-}, [allRegionsStats]);
 // Функция для расчета Attractiveness Score
 const calculateAttractivenessScore = (
   saturation: number | null,
@@ -996,13 +985,7 @@ const Index = () => {
                 selectedBrands={selectedBrands}
                 selectedCategories={selectedCategories}
               />
-             {/* Затем передавать это значение в RegionInfoPanel*/}
-             <RegionInfoPanel
-               selectedRegion={selectedRegion}
-               regionStats={regionStats}
-               onClearRegion={() => handleSelectRegion(null)}
-               avgLocations={calculateAvgLocations} // добавляем пропс
-            />
+
               {/* Попап выбора региона */}
               <RegionSelector
                 isOpen={regionSelectorOpen}
