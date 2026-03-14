@@ -294,7 +294,7 @@ const RegionSelector = ({ isOpen, onClose, onSelectRegion, selectedRegion }: {
     </>
   );
 };
-// ── Компонент RankingModal ───────────────────────────────────
+// ── КОМПОНЕНТ RANKINGMODAL - ИСПРАВЛЕННАЯ ВЕРСИЯ ──
 const RankingModal = ({ 
   isOpen, 
   onClose, 
@@ -310,7 +310,7 @@ const RankingModal = ({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
-  // Мемоизируем данные для таблицы, чтобы избежать лишних пересчетов
+  // Мемоизируем данные для таблицы - ВСЕ ДАННЫЕ В ОДНОМ useMemo
   const regionData = useMemo(() => {
     if (!regionStats) return [];
     
@@ -333,16 +333,9 @@ const RankingModal = ({
         ? Math.round((top3Brands.reduce((s, b) => s + b.count, 0) / totalPoints) * 100)
         : 0;
       
-      // Используем фиксированное значение для роста, чтобы избежать случайных изменений при ререндерах
-      const growth = 15; // Заглушка, в реальности нужно использовать getBrandDynamics
-      
+      const growth = 15; // Заглушка
       const score = calculateAttractivenessScore(saturation, density, growth);
-      
-      // Генерируем исторические данные для Sparkline (тоже мемоизируем)
-      const historicalGrowth = useMemo(() => 
-        generateSparklineData(growth, 0.3), 
-        [growth]
-      );
+      const historicalGrowth = generateSparklineData(growth, 0.3);
       
       return {
         region,
@@ -354,38 +347,28 @@ const RankingModal = ({
         historicalGrowth
       };
     });
-  }, [regionStats]); // Зависимость только от regionStats
+  }, [regionStats]); // Единственная зависимость
 
-  // Сортировка данных
+  // Сортировка данных - отдельный useMemo
   const sortedData = useMemo(() => {
     if (!regionData.length) return [];
     
     return [...regionData].sort((a, b) => {
-      let aVal = a[sortField as keyof typeof a];
-      let bVal = b[sortField as keyof typeof b];
-      
-      // Обработка null значений
-      if (aVal === null) aVal = 0;
-      if (bVal === null) bVal = 0;
-      
-      // Для строковых полей (регион) используем localeCompare
+      // Обработка строкового поля region
       if (sortField === "region") {
-        const aStr = aVal as string;
-        const bStr = bVal as string;
-        return sortDirection === "desc" 
-          ? bStr.localeCompare(aStr)
-          : aStr.localeCompare(bStr);
+        const comparison = a.region.localeCompare(b.region);
+        return sortDirection === "desc" ? -comparison : comparison;
       }
       
       // Для числовых полей
-      const aNum = aVal as number;
-      const bNum = bVal as number;
+      const aVal = a[sortField as keyof typeof a] ?? 0;
+      const bVal = b[sortField as keyof typeof b] ?? 0;
       
-      if (sortDirection === "desc") {
-        return bNum - aNum;
-      } else {
-        return aNum - bNum;
-      }
+      // Приводим к числам
+      const aNum = typeof aVal === 'number' ? aVal : 0;
+      const bNum = typeof bVal === 'number' ? bVal : 0;
+      
+      return sortDirection === "desc" ? bNum - aNum : aNum - bNum;
     });
   }, [regionData, sortField, sortDirection]);
 
@@ -424,12 +407,11 @@ const RankingModal = ({
     setExportMenuOpen(false);
   };
 
-  // Ранний возврат, если модалка не открыта
   if (!isOpen) return null;
 
   return (
     <>
-      {/* Затемнение фона с эффектом размытия */}
+      {/* Затемнение фона */}
       <div 
         className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[2000]" 
         onClick={onClose}
@@ -438,7 +420,6 @@ const RankingModal = ({
       {/* Модальное окно */}
       <div 
         className="fixed inset-8 bg-white/95 backdrop-blur-md rounded-xl shadow-2xl z-[2001] flex flex-col overflow-hidden border border-blue-100"
-        style={{ backdropFilter: 'blur(8px)' }}
       >
         {/* Заголовок */}
         <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-white border-b border-blue-100 flex items-center justify-between flex-shrink-0">
@@ -468,10 +449,7 @@ const RankingModal = ({
                     Export as CSV
                   </button>
                   <button
-                    onClick={() => {
-                      // Здесь можно добавить экспорт в Excel
-                      setExportMenuOpen(false);
-                    }}
+                    onClick={() => setExportMenuOpen(false)}
                     className="w-full text-left px-4 py-2 text-xs hover:bg-blue-50 transition-colors"
                   >
                     Export as Excel
@@ -498,62 +476,29 @@ const RankingModal = ({
             </div>
           ) : (
             <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b-2 border-gray-200">
-                  <th 
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleSort("region")}
-                  >
-                    Region
-                    {sortField === "region" && (
-                      <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
-                    )}
-                  </th>
-                  <th 
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleSort("saturation")}
-                  >
-                    Saturation (per 100k)
-                    {sortField === "saturation" && (
-                      <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
-                    )}
-                  </th>
-                  <th 
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleSort("density")}
-                  >
-                    Density (per km²)
-                    {sortField === "density" && (
-                      <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
-                    )}
-                  </th>
-                  <th 
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleSort("top3Share")}
-                  >
-                    Top-3 Share
-                    {sortField === "top3Share" && (
-                      <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
-                    )}
-                  </th>
-                  <th 
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleSort("growth")}
-                  >
-                    Growth Trend
-                    {sortField === "growth" && (
-                      <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
-                    )}
-                  </th>
-                  <th 
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleSort("score")}
-                  >
-                    Attractiveness Score
-                    {sortField === "score" && (
-                      <span className="ml-1">{sortDirection === "desc" ? "↓" : "↑"}</span>
-                    )}
-                  </th>
+              <thead className="sticky top-0 bg-gray-50 z-10">
+                <tr className="border-b-2 border-gray-200">
+                  {[
+                    { key: 'region', label: 'Region' },
+                    { key: 'saturation', label: 'Saturation (per 100k)' },
+                    { key: 'density', label: 'Density (per km²)' },
+                    { key: 'top3Share', label: 'Top-3 Share' },
+                    { key: 'growth', label: 'Growth Trend' },
+                    { key: 'score', label: 'Attractiveness Score' }
+                  ].map(column => (
+                    <th 
+                      key={column.key}
+                      className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort(column.key)}
+                    >
+                      <div className="flex items-center gap-1">
+                        {column.label}
+                        {sortField === column.key && (
+                          <span>{sortDirection === "desc" ? "↓" : "↑"}</span>
+                        )}
+                      </div>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -630,7 +575,6 @@ const RankingModal = ({
     </>
   );
 };
-
 // ── Main page ─────────────────────────────────────────────────
 const Index = () => {
   const navigate = useNavigate();
