@@ -30,6 +30,7 @@ interface RegionInfoPanelProps {
   selectedRegion: string | null;
   regionStats: RegionStats | null;
   onClearRegion: () => void;
+  avgLocations: number;
 }
 
 const Card = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
@@ -97,7 +98,7 @@ const safeRound = (value: number): number => {
   return Math.round(value * 100) / 100;
 };
 
-const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionInfoPanelProps) => {
+const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion, avgLocations }: RegionInfoPanelProps) => {
   const [period, setPeriod] = useState<Period>("quarter");
   const [activeTab, setActiveTab] = useState<TabType>("brands");
 
@@ -107,6 +108,9 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
   const area = getRegionArea(selectedRegion);
   const populationDensity = population && area ? Math.round((population * 1_000_000) / area) : null;
   const totalPoints = regionStats?.totalPoints ?? 0;
+  
+  // Разница со средним количеством точек
+  const vsAvgLocations = totalPoints - avgLocations;
   
   // Saturation Index
   const saturationIndex =
@@ -261,11 +265,9 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Locations</p>
             <div className="flex items-end justify-between">
               <p className="text-3xl font-black text-blue-600 leading-none">{totalPoints}</p>
-              {vsAvgTopShare !== null && (
-                <p className="text-[9px] text-gray-400 mb-1">
-                  vs Avg {vsAvgTopShare >= 0 ? "+" : ""}{vsAvgTopShare}
-                </p>
-              )}
+              <p className="text-[9px] text-gray-400 mb-1">
+                vs Avg {vsAvgLocations >= 0 ? "+" : ""}{vsAvgLocations}
+              </p>
             </div>
           </div>
           
