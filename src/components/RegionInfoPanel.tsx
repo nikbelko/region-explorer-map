@@ -298,7 +298,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
             <div className="flex items-end justify-between">
               <p className={`text-3xl font-black leading-none ${
                 saturationIndex !== null && vsAvgSaturation !== null && vsAvgSaturation < 0
-                  ? "text-emerald-600"
+                  ? "text-emerald-500"
                   : "text-gray-900"
               }`}>
                 {saturationIndex !== null ? saturationIndex : "—"}
@@ -397,7 +397,7 @@ const RegionInfoPanel = ({ selectedRegion, regionStats, onClearRegion }: RegionI
           }`}
           onClick={() => setActiveTab("radar")}
         >
-          Country Avg
+          Region vs Country Avg
         </button>
       </div>
 
