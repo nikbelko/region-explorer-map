@@ -996,7 +996,13 @@ const Index = () => {
                 selectedBrands={selectedBrands}
                 selectedCategories={selectedCategories}
               />
-
+             {/* Затем передавать это значение в RegionInfoPanel*/}
+             <RegionInfoPanel
+               selectedRegion={selectedRegion}
+               regionStats={regionStats}
+               onClearRegion={() => handleSelectRegion(null)}
+               avgLocations={calculateAvgLocations} // добавляем пропс
+            />
               {/* Попап выбора региона */}
               <RegionSelector
                 isOpen={regionSelectorOpen}
@@ -1027,7 +1033,6 @@ const Index = () => {
                 selectedRegion={selectedRegion}
                 regionStats={regionStats}
                 onClearRegion={() => handleSelectRegion(null)}
-                avgLocations={calculateAvgLocations} // добавляем пропс
               />
             </aside>
           )}
